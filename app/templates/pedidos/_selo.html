@@ -1,0 +1,6 @@
+{% import "_macros.html" as m %}
+{# Situação do pedido em frase, como o colaborador lê: "A TI precisa de uma resposta sua", "Resolvido"... #}
+{% macro selo(situacao) -%}
+{%- set icones = {"novo": "enviar", "atendimento": "relogio", "aguardando": "pergunta", "resolvido": "ok", "fechado": "ok"} -%}
+<span class="selo selo--{{ situacao }}">{{ m.icone(icones.get(situacao, "info")) }}{{ SITUACOES_PEDIDO[situacao] }}</span>
+{%- endmacro %}

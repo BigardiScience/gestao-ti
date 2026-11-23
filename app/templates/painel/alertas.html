@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Pendências{% endblock %}
+{% block conteudo %}
+{{ m.cabecalho("Pendências", alertas|length if alertas else None) }}
+<section class="painel">
+  {% if alertas %}
+  <ul class="pendencias">
+    {% for a in alertas %}
+    <li class="pendencia pendencia--{{ a.nivel }}">
+      {{ m.icone("alerta" if a.nivel != "info" else "info", "icone--p") }}
+      <span class="pendencia__texto">{{ a.titulo }}<small>{{ a.descricao }}</small></span>
+      <a class="pendencia__acao" href="{{ a.url }}">{{ a.acao }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="tudo-certo">{{ m.icone("ok-circulo") }}Nenhuma pendência no momento.</div>
+  {% endif %}
+</section>
+{% endblock %}

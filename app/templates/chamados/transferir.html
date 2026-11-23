@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Transferir chamado {{ chamado.id|numero_chamado }}{% endblock %}
+{% block conteudo %}
+{% call m.cabecalho("Transferir chamado nº " ~ chamado.id|numero_chamado, voltar=url_for("chamados.detalhe", chamado_id=chamado.id), voltar_rotulo="Voltar ao chamado") %}{% endcall %}
+<form class="painel formulario formulario--estreito" method="post" novalidate>
+  {{ m.csrf() }}
+  <div class="painel__corpo">
+    <p class="secundario">“{{ chamado.assunto }}” sai da fila de {{ chamado.unidade_nome }} e vai para a equipe escolhida, sem responsável.
+      A equipe de lá é avisada no Teams. O motivo fica na conversa como nota interna.</p>
+    <div class="grade-form">
+      {{ m.campo_select("unidade_id", "Transferir para", unidades|opcoes, form, erros, obrigatorio=True, largo=True) }}
+      {{ m.campo_texto("motivo", "Motivo", form, erros, obrigatorio=True, linhas=3) }}
+    </div>
+    <div class="rodape-form">
+      <a class="botao botao--fantasma" href="{{ url_for('chamados.detalhe', chamado_id=chamado.id) }}">Cancelar</a>
+      <button class="botao botao--primario" type="submit">{{ m.icone("transferir") }}Transferir</button>
+    </div>
+  </div>
+</form>
+{% endblock %}

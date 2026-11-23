@@ -1,0 +1,26 @@
+{% extends "base_publica.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Termo assinado{% endblock %}
+{% block conteudo %}
+<div class="resultado-verificacao" role="status">
+  {{ m.icone("ok-circulo") }}
+  <div>
+    <h1>Termo assinado</h1>
+    <p>Obrigado, {{ termo.colaborador_nome.split()[0] }}. Uma cópia em PDF foi enviada para {{ termo.colaborador_email }}.</p>
+  </div>
+</div>
+<div class="painel mt-16">
+  <div class="painel__corpo">
+    <dl class="dados">
+      <div><dt>Termo</dt><dd>{{ termo.codigo }}</dd></div>
+      <div><dt>Código de verificação</dt><dd class="forte">{{ termo.codigo_verificacao }}</dd></div>
+      <div><dt>Aparelho</dt><dd>{{ termo.marca }} {{ termo.modelo }}</dd></div>
+      <div><dt>Assinado em</dt><dd>{{ termo.assinado_em|datahora }}</dd></div>
+    </dl>
+    <div class="botoes mt-20">
+      <a class="botao botao--primario" href="{{ url_for('assinatura.pdf_assinado') }}">{{ m.icone("baixar") }}Baixar o termo assinado</a>
+      <a class="botao" href="{{ url_for('assinatura.verificar', codigo=termo.codigo_verificacao) }}">Conferir autenticidade</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

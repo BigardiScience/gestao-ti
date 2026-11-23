@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Notificações{% endblock %}
+{% block conteudo %}
+{% include "configuracoes/_abas.html" %}
+<div class="grade grade--lado">
+  <form class="painel" method="post" novalidate>
+    {{ m.csrf() }}
+    <div class="painel__corpo">
+      <div class="secao-form">
+        <h2>Lembretes de assinatura</h2>
+        <div class="opcoes">
+          {{ m.marcacao("lembrete_ativo", "Reenviar o link automaticamente enquanto o termo não for assinado", form) }}
+          {{ m.marcacao("lembrete_horario_comercial", "Só em dias úteis, das 8h às 18h", form) }}
+        </div>
+        <div class="grade-form mt-16">
+          {{ m.campo("lembrete_intervalo_dias", "Intervalo (dias)", form, erros, tipo="number", attrs='min="1" max="30"') }}
+          {{ m.campo("lembrete_maximo", "Máximo de lembretes", form, erros, tipo="number", attrs='min="0" max="10"') }}
+        </div>
+      </div>
+      <div class="secao-form">
+        <h2>Avisos para o TI</h2>
+        <div class="opcoes">
+          {{ m.marcacao("notificar_ti_assinatura", "Avisar quando um termo for assinado", form) }}
+          {{ m.marcacao("resumo_diario_ativo", "Enviar resumo diário de pendências", form) }}
+        </div>
+        <div class="grade-form mt-16">
+          {{ m.campo("resumo_diario_hora", "Horário do resumo", form, erros, tipo="time") }}
+          {{ m.campo("notificacao_emails", "Quem recebe", form, erros, largo=True,
+                     ajuda="E-mails separados por vírgula. Em branco: todos os administradores (" ~ (destinatarios_padrao|join(", ") or "nenhum") ~ ").") }}
+        </div>
+      </div>
+      <div class="rodape-form"><button class="botao botao--primario" type="submit">Salvar</button></div>
+    </div>
+  </form>
+
+  <aside class="painel" aria-labelledby="t-tarefas">
+    <div class="painel__cabecalho"><h2 id="t-tarefas">Tarefas automáticas</h2></div>
+    <ul class="pendencias">
+      {% for t in tarefas %}
+      <li class="pendencia">
+        <span class="pendencia__texto">{{ t.rotulo }}
+          <small>{% if t.ultima_execucao %}Última: {{ t.ultima_execucao|quando }}{% else %}Ainda não executada{% endif %}{% if t.proxima_execucao %} · próxima: {{ t.proxima_execucao|quando }}{% endif %}</small></span>
+        <form method="post" action="{{ url_for('configuracoes.executar_tarefa', nome=t.nome) }}">{{ m.csrf() }}
+          <button class="botao botao--p" type="submit" title="{{ t.ultimo_resultado or '' }}">Executar</button></form>
+      </li>
+      {% endfor %}
+    </ul>
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% import "chamados/_macros.html" as ch %}
+{% block titulo %}Chamados{% endblock %}
+{% set situacao = filtros.situacao %}
+{% set todas = unidade is none %}
+{% set extras = namespace(n=0) %}
+{% for chave in ("categoria", "prioridade") %}{% if filtros.get(chave) %}{% set extras.n = extras.n + 1 %}{% endif %}{% endfor %}
+{% if situacao in ("resolvido", "fechado", "todos") %}{% set extras.n = extras.n + 1 %}{% endif %}
+{% block conteudo %}
+{% call m.cabecalho("Chamados") %}
+  <button class="botao" type="button" data-ativar-avisos hidden>{{ m.icone("sino") }}Ativar avisos do Windows</button>
+  {% if atendidas is none or atendidas %}
+  <a class="botao" href="{{ url_for('chamados.relatorio', unidade=unidade) }}">{{ m.icone("relatorio") }}Relatório do mês</a>
+  <a class="botao botao--primario" href="{{ url_for('chamados.novo') }}">{{ m.icone("mais") }}Abrir chamado por alguém</a>
+  {% endif %}
+{% endcall %}
+
+<div class="aviso aviso--info fila-novidade" data-fila-novidade hidden role="status">
+  {{ m.icone("sino") }}<div class="aviso__texto">Chegou chamado novo. <a href="{{ request.full_path }}">Atualizar a lista</a></div>
+</div>
+
+<nav class="abas" aria-label="Unidades">
+  <a class="aba{% if todas %} aba--ativa{% endif %}" href="{{ url_com(unidade='todas', pagina=None) }}"{% if todas %} aria-current="page"{% endif %}>Todas <small>{{ total_abertos|milhar }}</small></a>
+  {% for u in unidades %}
+  <a class="aba{% if unidade == u.id %} aba--ativa{% endif %}" href="{{ url_com(unidade=u.id, pagina=None) }}"{% if unidade == u.id %} aria-current="page"{% endif %}>{{ u.nome }} <small>{{ u.total|milhar }}</small>
+    {%- if atendidas is not none and u.id not in atendidas %}<span class="visualmente-oculto"> (só leitura)</span>{% endif %}</a>
+  {% endfor %}
+</nav>
+
+<div class="indicadores">
+  {{ m.indicador("Abertos", numeros.abertos, url_com(situacao=None, pagina=None), "ch-abertos", situacao == "abertos") }}
+  {{ m.indicador("Novos", numeros.novos, url_com(situacao="novo", pagina=None), "ch-novos", situacao == "novo") }}
+  {{ m.indicador("Em atendimento", numeros.atendimento, url_com(situacao="atendimento", pagina=None), "ch-atendimento", situacao == "atendimento") }}
+  {{ m.indicador("Aguardando usuário", numeros.aguardando, url_com(situacao="aguardando", pagina=None), "ch-aguardando", situacao == "aguardando") }}
+  {{ m.indicador("Atrasados", numeros.atrasados, url_com(situacao="atrasados", pagina=None), "ch-atrasados", situacao == "atrasados") }}
+  <a class="indicador indicador--ch-resolvidos{% if situacao == 'concluidos' %} indicador--ativo{% endif %}{% if numeros.resolvidos_mes %} indicador--tem{% endif %}" href="{{ url_com(situacao='concluidos', pagina=None) }}"{% if situacao == 'concluidos' %} aria-current="true"{% endif %}>
+    <span class="indicador__numero">{{ numeros.resolvidos_mes|milhar }}</span>
+    <span class="indicador__rotulo">Resolvidos no mês{% if numeros.resolvidos_mes %} ({{ numeros.no_prazo_mes }} no prazo){% endif %}</span>
+  </a>
+</div>
+
+<section class="painel fila-painel">
+  <form class="fila-barra" method="get" role="search" aria-label="Filtrar chamados">
+    <label class="fila-barra__busca">{{ m.icone("busca", "icone--p") }}<span class="visualmente-oculto">Buscar</span>
+      <input type="search" name="q" value="{{ filtros.q }}" placeholder="Número, pessoa, máquina ou assunto"></label>
+    <a class="fila-chip{% if filtros.meus %} fila-chip--ativo{% endif %}" href="{{ url_com(meus=None if filtros.meus else '1', pagina=None) }}"{% if filtros.meus %} aria-current="true"{% endif %}>Meus</a>
+    <a class="fila-chip{% if filtros.sem_responsavel %} fila-chip--ativo{% endif %}" href="{{ url_com(sem_responsavel=None if filtros.sem_responsavel else '1', pagina=None) }}"{% if filtros.sem_responsavel %} aria-current="true"{% endif %}>Sem responsável{% if numeros.sem_responsavel %} {{ numeros.sem_responsavel }}{% endif %}</a>
+    {% if numeros.respostas or filtros.respostas %}<a class="fila-chip fila-chip--novidade{% if filtros.respostas %} fila-chip--ativo{% endif %}" href="{{ url_com(respostas=None if filtros.respostas else '1', pagina=None) }}"{% if filtros.respostas %} aria-current="true"{% endif %}>Respostas novas {{ numeros.respostas }}</a>{% endif %}
+    <details class="filtros-mais fila-barra__filtros"{% if extras.n %} data-ativos="{{ extras.n }}"{% endif %}>
+      <summary class="botao botao--p">Filtros{% if extras.n %} <span class="filtros-mais__contador">{{ extras.n }}</span>{% endif %}</summary>
+      <div class="filtros-mais__painel">
+        {{ m.campo_select("situacao", "Situação", (("abertos", "Abertos"), ("concluidos", "Concluídos (resolvidos e fechados)"), ("resolvido", "Resolvidos"), ("fechado", "Fechados"), ("todos", "Todos")), {"situacao": situacao if situacao in ("abertos", "concluidos", "resolvido", "fechado", "todos") else "abertos"}, None, vazio=None) }}
+        {{ m.campo_select("categoria", "Categoria", OPCOES_CATEGORIA_CHAMADO, filtros, None, vazio="Todas") }}
+        {{ m.campo_select("prioridade", "Prioridade", PRIORIDADES_CHAMADO|itens_dict, filtros, None, vazio="Todas") }}
+        <div class="botoes botoes--fim">
+          {% if extras.n %}<a class="botao botao--fantasma botao--p" href="{{ url_com(categoria=None, prioridade=None, situacao=None, pagina=None) }}">Limpar</a>{% endif %}
+          <button class="botao botao--primario botao--p" type="submit">Aplicar</button>
+        </div>
+      </div>
+    </details>
+    {% for oculto in ("unidade", "meus", "sem_responsavel", "respostas", "solicitante") %}{% if request.args.get(oculto) %}<input type="hidden" name="{{ oculto }}" value="{{ request.args[oculto] }}">{% endif %}{% endfor %}
+    {% if situacao not in ("abertos", "concluidos", "resolvido", "fechado", "todos") %}<input type="hidden" name="situacao" value="{{ situacao }}">{% endif %}
+    <button class="visualmente-oculto" type="submit" tabindex="-1">Buscar</button>
+  </form>
+  {% if solicitante %}
+  <p class="filtro-pessoa">{{ m.icone("pessoa", "icone--p") }}Pedidos de <strong>{{ solicitante.nome }}</strong> <a href="{{ url_com(solicitante=None, pagina=None) }}">Mostrar todos</a></p>
+  {% endif %}
+
+  {% if pagina.itens %}
+  <div class="tabela-rolagem">
+    <table class="tabela tabela--cartoes fila">
+      <thead><tr><th scope="col">Nº</th><th scope="col">Pedido</th><th scope="col">Solicitante</th><th scope="col">Prioridade</th>
+        <th scope="col">Prazo</th><th scope="col">Responsável</th><th scope="col">Situação</th></tr></thead>
+      <tbody>
+      {% for c in pagina %}
+        {% set maquina = c.computador_nome or c.origem_nome %}
+        <tr>
+          <td class="fila__numero" data-celular="oculto"><a href="{{ url_for('chamados.detalhe', chamado_id=c.id) }}" tabindex="-1">#{{ c.id|numero_chamado }}</a></td>
+          <td class="fila__pedido">
+            {% if c.resposta_em and c.situacao in ("novo", "atendimento", "aguardando") and (c.responsavel_id == usuario.id or not c.responsavel_id) %}<span class="fila__respondeu">{{ m.icone("balao", "icone--p") }}{{ c.solicitante_nome.split(" ")[0] }} respondeu</span>{% endif %}
+            <a class="fila__assunto" href="{{ url_for('chamados.detalhe', chamado_id=c.id) }}"><span class="fila__numero-celular">#{{ c.id|numero_chamado }} · </span>{{ c.assunto }}</a>
+            {% if c.categoria == "seguranca" %}
+            <span class="fila__sub fila__sub--restrito">{{ m.icone("cadeado", "icone--p") }}Segurança da informação · só a TI vê</span>
+            {% else %}
+            <span class="fila__sub">{{ CATEGORIAS_CHAMADO[c.categoria][0] }}{% if maquina %} · {{ maquina }}{% elif c.aparelho_marca %} · {{ c.aparelho_marca }} {{ c.aparelho_modelo }}{% endif %}</span>
+            {% endif %}
+          </td>
+          <td data-celular="linha">{{ c.solicitante_nome }}<span class="fila__sub">{{ c.solicitante_setor or "Setor não informado" }}{% if todas %} · {{ c.unidade_nome }}{% endif %}</span></td>
+          <td data-celular="linha">{{ ch.prioridade(c.prioridade) }}</td>
+          <td data-celular="linha">{{ ch.prazo(c.prazo) }}</td>
+          <td data-celular="linha">{% if c.responsavel_nome %}<span title="{{ c.responsavel_nome }}">{{ c.responsavel_curto }}</span>{% else %}<span class="fila__ninguem">Sem responsável</span>{% endif %}</td>
+          <td data-celular="linha">{{ ch.situacao(c.situacao) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ m.paginacao(pagina) }}
+  {% elif filtros.q or filtros.categoria or filtros.prioridade or filtros.meus or filtros.sem_responsavel or filtros.respostas or solicitante %}
+  {{ m.vazio("Nenhum chamado encontrado", "Tente outra busca ou limpe os filtros.") }}
+  {% elif situacao == "abertos" %}
+  {{ m.vazio("Nenhum chamado aberto" ~ ("" if todas else " nesta unidade"), "Quando alguém fizer um pedido, ele aparece aqui e a equipe é avisada no Teams.") }}
+  {% else %}
+  {{ m.vazio("Nada por aqui", "Nenhum chamado nesta situação.") }}
+  {% endif %}
+</section>
+{% if pagina.itens and situacao not in ("concluidos", "resolvido", "fechado", "todos") %}
+<p class="fila-nota">Ordem: atrasados e prioridade alta primeiro.{% if atendidas is not none %} Você vê os chamados de todas as unidades e atende os da sua.{% endif %}</p>
+{% endif %}
+<p class="fila-nota" data-avisos-estado hidden aria-live="polite"></p>
+{% endblock %}

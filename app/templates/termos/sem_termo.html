@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Entregas sem termo{% endblock %}
+{% block conteudo %}
+{% call m.cabecalho("Termos") %}
+  {% if eh_admin() and vinculos %}
+  <form method="post" action="{{ url_for('termos.lote') }}" data-confirmar="Emitir {{ plural(vinculos|length, 'termo') }} agora? Você poderá revisar e enviar em seguida." data-confirmar-titulo="Emitir termos" data-confirmar-botao="Emitir">
+    {{ m.csrf() }}<input type="hidden" name="acao" value="emitir_pendentes">
+    <button class="botao" type="submit">{{ m.icone("documento") }}Emitir todos ({{ vinculos|length }})</button>
+  </form>
+  <form method="post" action="{{ url_for('termos.lote') }}" data-confirmar="Emitir e enviar por e-mail {{ plural(vinculos|length, 'termo') }}? Cada colaborador recebe o link de assinatura." data-confirmar-titulo="Emitir e enviar" data-confirmar-botao="Emitir e enviar">
+    {{ m.csrf() }}<input type="hidden" name="acao" value="emitir_pendentes"><input type="hidden" name="enviar_agora" value="1">
+    <button class="botao botao--primario" type="submit">{{ m.icone("enviar") }}Emitir e enviar todos</button>
+  </form>
+  {% endif %}
+{% endcall %}
+{% include "termos/_abas.html" %}
+<section class="painel">
+  {% if vinculos %}
+  <div class="tabela-rolagem">
+    <table class="tabela tabela--cartoes">
+      <thead><tr><th>Colaborador</th><th>Aparelho</th><th>Entregue em</th><th><span class="visualmente-oculto">Ações</span></th></tr></thead>
+      <tbody>
+      {% for v in vinculos %}
+        <tr>
+          <td><span class="titulo-celula">{{ v.colaborador_nome }}</span></td>
+          <td data-celular="linha"><a href="{{ url_for('aparelhos.detalhe', aparelho_id=v.aparelho_id) }}">{{ v.marca }} {{ v.modelo }}</a></td>
+          <td class="num" data-celular="oculto">{{ v.entregue_em|data }}</td>
+          <td class="celula-acoes" data-celular="direita">{% if eh_admin() %}
+            <form class="inline" method="post" action="{{ url_for('termos.emitir', vinculo_id=v.id) }}">{{ m.csrf() }}<button class="botao botao--p" type="submit">Emitir termo</button></form>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="tudo-certo">{{ m.icone("ok-circulo") }}Todas as entregas em aberto têm termo.</div>
+  {% endif %}
+</section>
+{% endblock %}

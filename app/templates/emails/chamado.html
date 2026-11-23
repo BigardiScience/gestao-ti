@@ -1,0 +1,19 @@
+{% extends "emails/_base.html" %}
+{% set empresa = nome_empresa() %}
+{% block selo %}{{ "Chamados de TI" if para_ti else "Pedidos para a TI" }}{% endblock %}
+{% block corpo %}
+<p style="margin:0 0 14px;font-size:20px;font-weight:700;line-height:1.3;">{{ titulo }}</p>
+{% for p in paragrafos or [] %}<p style="margin:0 0 12px;">{{ p }}</p>{% endfor %}
+{% if citacao %}
+<div style="margin:0 0 16px;padding:12px 14px;border-left:4px solid #ffc72c;background:#f8f9fb;border-radius:4px;white-space:pre-wrap;">{{ citacao }}</div>
+{% endif %}
+{% if fatos %}
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;font-size:14px;">
+  {% for rotulo, valor in fatos %}<tr><td style="padding:2px 14px 2px 0;color:#667085;white-space:nowrap;">{{ rotulo }}</td><td style="padding:2px 0;">{{ valor or "—" }}</td></tr>{% endfor %}
+</table>
+{% endif %}
+{% if botao %}
+<p style="margin:20px 0 6px;"><a href="{{ botao.url }}" style="display:inline-block;background:#172033;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px;">{{ botao.texto }}</a></p>
+{% endif %}
+{% endblock %}
+{% block rodape %}{% if para_ti %}Aviso automático dos chamados de TI de {{ empresa }}.{% else %}Mensagem automática dos Pedidos para a TI de {{ empresa }}. Respostas a este e-mail não chegam à TI: use o botão acima. A TI nunca pede a sua senha.{% endif %}{% endblock %}

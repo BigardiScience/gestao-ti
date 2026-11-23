@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Registrar devolução{% endblock %}
+{% block conteudo %}
+{{ m.cabecalho("Registrar devolução", voltar=url_for('aparelhos.detalhe', aparelho_id=vinculo.aparelho_id), voltar_rotulo=vinculo.marca ~ " " ~ vinculo.modelo) }}
+<div class="formulario pilha">
+  {% include "vinculos/_resumo.html" %}
+  <form class="painel" method="post" novalidate>
+    {{ m.csrf() }}
+    <div class="painel__corpo">
+      <div class="grade-form">
+        {{ m.campo("devolvido_em", "Data e hora da devolução", form, erros, tipo="datetime-local", obrigatorio=True) }}
+        {{ m.campo_select("estado", "Estado de conservação", estados|pares, form, erros, obrigatorio=True) }}
+        {{ m.campo("acessorios", "Acessórios devolvidos", form, erros, largo=True) }}
+        <div class="campo campo--largo">
+          <span class="rotulo" id="rotulo-destino">Para onde vai o aparelho</span>
+          <div class="escolhas" role="radiogroup" aria-labelledby="rotulo-destino">
+            {% for d in destinos %}
+            <label class="escolha" title="{{ ajuda_status[d] }}">
+              <input type="radio" name="destino" value="{{ d }}" {% if form.get('destino', 'devolvido') == d %}checked{% endif %}>
+              <span class="escolha__caixa"><strong>{{ STATUS_APARELHO[d] }}</strong></span>
+            </label>
+            {% endfor %}
+          </div>
+          {{ m.erro_campo(erros, "destino") }}
+        </div>
+        <div class="campo campo--largo{% if erros.get('motivo_baixa') %} campo--erro{% endif %}" data-mostrar-quando="destino=baixado" hidden>
+          <label for="c-motivo_baixa">Motivo da baixa</label>
+          <select id="c-motivo_baixa" name="motivo_baixa"><option value="">Selecione</option>
+            {% for mtv in motivos_baixa %}<option {% if form.get('motivo_baixa') == mtv %}selected{% endif %}>{{ mtv }}</option>{% endfor %}
+          </select>
+          {{ m.erro_campo(erros, "motivo_baixa") }}
+        </div>
+        {{ m.campo_texto("observacoes", "Observações", form, erros, linhas=2) }}
+      </div>
+      <div class="rodape-form">
+        <span class="pequeno discreto flex-1">Um termo ainda não assinado desta entrega é cancelado.</span>
+        <a class="botao botao--fantasma" href="{{ url_for('aparelhos.detalhe', aparelho_id=vinculo.aparelho_id) }}">Cancelar</a>
+        <button class="botao botao--primario" type="submit">{{ m.icone("devolver") }}Registrar devolução</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

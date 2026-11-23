@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}{{ "Editar unidade" if unidade else "Cadastrar unidade" }}{% endblock %}
+{% block conteudo %}
+{{ m.cabecalho(unidade.nome if unidade else "Cadastrar unidade", voltar=url_for('unidades.lista'), voltar_rotulo="Unidades") }}
+<form class="painel formulario" method="post" novalidate>
+  {{ m.csrf() }}
+  <div class="painel__corpo">
+    <div class="secao-form">
+    <div class="grade-form">
+      {{ m.campo("nome", "Nome", form, erros, obrigatorio=True, attrs='placeholder="Ex.: Matriz, Fábrica Sorocaba"') }}
+      {{ m.campo("cidade", "Cidade", form, erros, ajuda="Vai no local e data do termo.") }}
+      {{ m.campo_select("uf", "UF", ufs|pares, form, erros) }}
+      {{ m.campo("sigla", "Sigla", form, erros, attrs='placeholder="Ex.: MTZ"') }}
+      {{ m.campo("cnpj", "CNPJ", form, erros) }}
+      {{ m.campo("endereco", "Endereço", form, erros) }}
+      {{ m.campo("redes", "Faixas de IP", form, erros, largo=True, ajuda="Ex.: 172.16.161.0/24. O cadastro de computadores recusa IPs fora daqui. Separe várias por vírgula.", attrs='autocomplete="off" spellcheck="false"') }}
+      <div class="campo campo--largo">
+        {{ m.marcacao("ativo", "Unidade ativa", form, "Inativas somem dos cadastros novos; o histórico continua.") }}
+      </div>
+    </div>
+    </div>
+
+    <div class="secao-form">
+      <h2>Pedidos para a TI</h2>
+      <div class="grade-form">
+        {{ m.campo("ou_ad", "OU no AD", form, erros, attrs='placeholder="Ex.: SP - Sorocaba" autocomplete="off" spellcheck="false"',
+                   ajuda="Nome da OU logo acima de “Setores” no AD. É por ela que o sistema sabe de qual unidade a pessoa é.") }}
+        <div class="campo campo--largo">
+          {{ m.marcacao("chamados_ativo", "Colaboradores desta unidade podem entrar e fazer pedidos", form,
+                        "Desligado: quem é desta unidade vê “sua unidade ainda não usa este sistema” (a equipe de TI entra normalmente).") }}
+        </div>
+      </div>
+    </div>
+
+    <div class="secao-form">
+      <h2>Avisos no Teams</h2>
+      <div class="grade-form">
+        <div class="campo campo--largo{% if erros.teams_link %} campo--erro{% endif %}">
+          <label for="c-teams_link">Link do fluxo do canal desta unidade</label>
+          <input type="password" id="c-teams_link" name="teams_link" value="" autocomplete="off" spellcheck="false"
+                 placeholder="{{ 'Já cadastrado. Cole um novo só para trocar.' if unidade and unidade.teams_webhook else 'https://...' }}" aria-describedby="ajuda-teams">
+          <span class="campo__ajuda" id="ajuda-teams">No canal do Teams: Workflows › “Enviar alertas de webhook para um canal”. O link é guardado criptografado e não aparece de novo.</span>
+          {{ m.erro_campo(erros, "teams_link") }}
+        </div>
+        {% if unidade and unidade.teams_webhook %}
+        <div class="campo campo--largo">{{ m.marcacao("teams_remover", "Remover o link cadastrado", {}) }}</div>
+        {% endif %}
+        {% if outras %}
+        <div class="campo campo--largo">
+          <span class="rotulo">Avisar também nos canais de</span>
+          <div class="opcoes opcoes--linha">
+            {% for u in outras %}
+            <label class="marcacao"><input type="checkbox" name="teams_tambem" value="{{ u.id }}"{% if u.id in tambem %} checked{% endif %}><span class="marcacao__texto">{{ u.nome }}</span></label>
+            {% endfor %}
+          </div>
+          <span class="campo__ajuda">Para unidades sem TI própria (ex.: Santos → Sorocaba e Uberaba).</span>
+        </div>
+        {% endif %}
+      </div>
+      {% if unidade and unidade.teams_webhook %}
+      <button class="botao botao--p mt-16" type="submit" form="form-testar-teams">{{ m.icone("enviar", "icone--p") }}Enviar mensagem de teste</button>
+      {% endif %}
+    </div>
+    <div class="rodape-form">
+      {% if unidade %}
+      <button class="botao botao--perigo" type="submit" form="form-excluir">Excluir</button>
+      <span class="flex-1"></span>
+      {% endif %}
+      <a class="botao botao--fantasma" href="{{ url_for('unidades.lista') }}">Cancelar</a>
+      <button class="botao botao--primario" type="submit">{{ "Salvar" if unidade else "Cadastrar unidade" }}</button>
+    </div>
+  </div>
+</form>
+{% if unidade and unidade.teams_webhook %}
+<form id="form-testar-teams" method="post" action="{{ url_for('unidades.testar_teams', unidade_id=unidade.id) }}">{{ m.csrf() }}</form>
+{% endif %}
+{% if unidade %}
+<form id="form-excluir" method="post" action="{{ url_for('unidades.excluir', unidade_id=unidade.id) }}"
+      data-confirmar="A unidade só pode ser excluída se não tiver aparelhos, colaboradores nem computadores." data-confirmar-titulo="Excluir unidade?"
+      data-confirmar-botao="Excluir" data-confirmar-perigo="1">{{ m.csrf() }}</form>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% set eh_aparelho = tipo == "aparelhos" %}
+{% set lista = "aparelhos.lista" if eh_aparelho else "colaboradores.lista" %}
+{% block titulo %}Importar {{ modelo.titulo|lower }}{% endblock %}
+{% block conteudo %}
+{{ m.cabecalho("Importar " ~ modelo.titulo|lower, voltar=url_for(lista), voltar_rotulo=modelo.titulo) }}
+
+<div class="formulario pilha">
+  {% if resultado %}
+  <section class="painel" aria-labelledby="t-resultado">
+    <div class="painel__cabecalho"><h2 id="t-resultado">Resultado da validação</h2></div>
+    <div class="painel__corpo pilha">
+      {% if resultado.estrutura %}
+        {% for e in resultado.estrutura %}<div class="aviso aviso--erro">{{ m.icone("erro") }}<div class="aviso__texto">{{ e }}</div></div>{% endfor %}
+      {% elif resultado.erros %}
+        <div class="aviso aviso--erro">{{ m.icone("erro") }}<div class="aviso__texto">
+          {{ plural(resultado.erros|length, "problema") }} em {{ plural(resultado.erros|map(attribute="linha")|unique|list|length, "linha") }} de {{ resultado.linhas }}. Corrija na planilha e envie de novo.</div></div>
+        <ul class="lista-erros">
+          {% for e in resultado.erros %}<li><span class="forte">Linha {{ e.linha }}</span><span>{{ e.coluna or "—" }}</span><span>{{ e.mensagem }}</span></li>{% endfor %}
+        </ul>
+      {% elif resultado.pronto %}
+        <div class="aviso aviso--sucesso">{{ m.icone("ok-circulo") }}<div class="aviso__texto">
+          Planilha válida: {{ plural(resultado.linhas, "linha pronta", "linhas prontas") }} para importar.
+          {% if resultado.unidades_criadas %}Unidades novas: {{ resultado.unidades_criadas|join(", ") }}.{% endif %}
+          {% if resultado.entregas %}{{ plural(resultado.entregas, "aparelho já entra", "aparelhos já entram") }} como entregue ao responsável.{% endif %}
+        </div></div>
+        <form method="post">
+          {{ m.csrf() }}
+          <input type="hidden" name="acao" value="importar_validado">
+          <button class="botao botao--primario" type="submit">{{ m.icone("enviar-arquivo") }}Importar {{ resultado.linhas }} {{ "aparelho(s)" if eh_aparelho else "colaborador(es)" }}</button>
+        </form>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="painel" aria-labelledby="t-enviar">
+    <div class="painel__cabecalho"><h2 id="t-enviar">Enviar planilha</h2>
+      <a href="{{ url_for('aparelhos.modelo_importacao' if eh_aparelho else 'colaboradores.modelo_importacao') }}">{{ m.icone("baixar", "icone--p") }}Baixar modelo</a></div>
+    <div class="painel__corpo">
+      <form method="post" enctype="multipart/form-data" class="pilha">
+        {{ m.csrf() }}
+        <p class="secundario">Preencha o modelo e envie. Nada é gravado enquanto houver erro em alguma linha.
+          {% if eh_aparelho %}Para aparelhos que já estão com alguém, informe o CPF ou o e-mail do responsável (importe os colaboradores antes).{% endif %}</p>
+        <div class="campo">
+          <label for="arquivo">Planilha (.xlsx)</label>
+          <input id="arquivo" class="entrada" type="file" name="arquivo" accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+        </div>
+        {{ m.marcacao("criar_unidades", "Criar as unidades que ainda não existem", {}) }}
+        <details class="mais-campos">
+          <summary>Colunas aceitas</summary>
+          <p class="pequeno discreto mt-10">{{ modelo.colunas|map(attribute=1)|join(", ") }}. Campos com * são obrigatórios; colunas extras são ignoradas.</p>
+        </details>
+        <div class="botoes">
+          <button class="botao botao--primario" type="submit" name="acao" value="validar">{{ m.icone("ok") }}Validar planilha</button>
+        </div>
+      </form>
+    </div>
+  </section>
+</div>
+{% endblock %}

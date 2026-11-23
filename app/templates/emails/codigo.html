@@ -1,0 +1,7 @@
+{% extends "emails/_base.html" %}
+{% block corpo %}
+<p style="margin:0 0 14px;">Olá, {{ primeiro_nome }}.</p>
+<p style="margin:0 0 14px;">{% if finalidade == "assinatura" %}Use o código abaixo para assinar o termo de responsabilidade {{ termo.codigo }}.{% else %}Use o código abaixo para entrar no portal do colaborador.{% endif %}</p>
+<p style="margin:20px 0;font-size:32px;font-weight:700;letter-spacing:8px;font-family:Consolas,'Courier New',monospace;background:#f8f9fb;border:1px solid #e3e7ed;border-radius:8px;padding:14px 18px;text-align:center;">{{ codigo }}</p>
+<p style="margin:0;font-size:13px;color:#475467;">O código vale por 15 minutos. Se você não pediu este código, ignore esta mensagem.</p>
+{% endblock %}

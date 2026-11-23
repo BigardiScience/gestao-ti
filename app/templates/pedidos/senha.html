@@ -1,0 +1,23 @@
+{% extends "base_colaborador.html" %}
+{% block titulo %}{{ "Crie a sua senha" if obrigatoria else "Trocar senha" }}{% endblock %}
+{% block largura %} ped-conteudo--estreito{% endblock %}
+{% block conteudo %}
+<section class="ped-cartao" aria-labelledby="t-senha">
+  <h1 class="ped-titulo" id="t-senha">{{ "Crie a sua senha" if obrigatoria else "Trocar senha" }}</h1>
+  <p class="ped-sub">{% if obrigatoria %}Você entrou com uma senha temporária. Crie a sua para continuar.{% else %}Escolha uma senha nova.{% endif %}</p>
+  <form method="post" novalidate>
+    {{ m.csrf() }}
+    {% for nome, rotulo, completar in (("atual", "Senha temporária" if obrigatoria else "Senha atual", "current-password"),
+                                       ("nova", "Nova senha", "new-password"), ("confirmar", "Repita a nova senha", "new-password")) %}
+    <div class="ped-campo">
+      <label class="ped-rotulo" for="c-{{ nome }}">{{ rotulo }}</label>
+      <input class="ped-entrada" id="c-{{ nome }}" type="password" name="{{ nome }}" autocomplete="{{ completar }}" required
+             {% if erros.get(nome) %}aria-invalid="true" aria-describedby="erro-{{ nome }}"{% elif nome == "nova" %}aria-describedby="ajuda-nova"{% endif %}>
+      {% if erros.get(nome) %}<p class="ped-erro" id="erro-{{ nome }}">{{ m.icone("alerta") }}{{ erros[nome] }}</p>
+      {% elif nome == "nova" %}<p class="ped-ajuda" id="ajuda-nova">Pelo menos 8 caracteres, com letras e números.</p>{% endif %}
+    </div>
+    {% endfor %}
+    <button class="ped-botao ped-botao--principal ped-botao--grande" type="submit">Salvar senha</button>
+  </form>
+</section>
+{% endblock %}

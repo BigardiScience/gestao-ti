@@ -1,0 +1,18 @@
+{% extends "base_publica.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Termo {{ termo.codigo }}{% endblock %}
+{% block topo_direita %}<a class="botao botao--p" href="{{ url_for('portal.inicio') }}">{{ m.icone("voltar", "icone--p") }}Meus termos</a>{% endblock %}
+{% set evidencias = termo.evidencias_json|fromjson %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div class="cabecalho__texto">
+    <div class="titulo-status"><h1>Termo {{ termo.codigo }}</h1>{{ m.selo_termo(termo.status) }}</div>
+    {% if termo.status == "assinado" %}<p class="cabecalho__linha">Assinado em {{ termo.assinado_em|datahora }}. Verificação {{ termo.codigo_verificacao }}.</p>
+    {% else %}<p class="cabecalho__linha">O TI ainda vai liberar este termo para assinatura.</p>{% endif %}
+  </div>
+  <div class="cabecalho__acoes">
+    <a class="botao botao--primario" href="{{ url_for('portal.pdf', termo_id=termo.id) }}">{{ m.icone("baixar") }}Baixar PDF</a>
+  </div>
+</div>
+<div class="painel">{% include "termos/_documento.html" %}</div>
+{% endblock %}

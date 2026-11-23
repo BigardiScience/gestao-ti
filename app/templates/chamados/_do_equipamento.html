@@ -1,0 +1,17 @@
+{# Lista curta de chamados de um equipamento (ficha do computador ou do celular). Espera: lista_chamados, link_novo #}
+{% import "_macros.html" as m %}
+{% import "chamados/_macros.html" as ch %}
+<section class="painel" aria-labelledby="t-chamados-equip">
+  <div class="painel__cabecalho"><h2 id="t-chamados-equip">Chamados <span class="discreto num">{{ lista_chamados|length }}{% if lista_chamados|length >= 15 %}+{% endif %}</span></h2></div>
+  {% if lista_chamados %}
+  <ul class="lista-chamados">
+    {% for c in lista_chamados %}
+    <li><span class="num discreto">{{ c.id|numero_chamado }}</span>
+      <a href="{{ url_for('chamados.detalhe', chamado_id=c.id) }}" title="{{ c.assunto }}">{% if c.categoria == "seguranca" %}{{ m.icone("cadeado", "icone--p fila__cadeado") }}{% endif %}{{ c.assunto }}</a>
+      {{ ch.situacao(c.situacao) }}<time datetime="{{ c.criado_em }}">{{ c.criado_em|quando }}</time></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="painel__corpo"><p class="discreto">Nenhum chamado deste equipamento.</p></div>
+  {% endif %}
+</section>

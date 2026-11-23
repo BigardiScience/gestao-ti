@@ -1,0 +1,27 @@
+{% extends "emails/_base.html" %}
+{% set empresa = nome_empresa() %}
+{% block selo %}Chamados de TI{% endblock %}
+{% block corpo %}
+<p style="margin:0 0 6px;font-size:20px;font-weight:700;">Bom dia, {{ pessoa.nome.split()[0] }}</p>
+<p style="margin:0 0 16px;color:#475467;">Situação dos chamados {{ "de todas as unidades" if pessoa.perfil == "admin" else "das unidades que você atende" }}.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 18px;">
+  <tr>
+    <td style="padding:10px 12px;border:1px solid #e3e7ed;border-radius:8px;"><div style="font-size:24px;font-weight:700;">{{ total }}</div><div style="font-size:13px;color:#475467;">abertos</div></td>
+    <td style="width:10px;"></td>
+    <td style="padding:10px 12px;border:1px solid {{ '#f1b8b2' if atrasados else '#e3e7ed' }};border-radius:8px;"><div style="font-size:24px;font-weight:700;color:{{ '#b42318' if atrasados else '#172033' }};">{{ atrasados|length }}</div><div style="font-size:13px;color:#475467;">atrasados</div></td>
+    <td style="width:10px;"></td>
+    <td style="padding:10px 12px;border:1px solid #e3e7ed;border-radius:8px;"><div style="font-size:24px;font-weight:700;">{{ sem_responsavel|length }}</div><div style="font-size:13px;color:#475467;">sem responsável</div></td>
+  </tr>
+</table>
+{% for titulo, lista in (("Atrasados", atrasados), ("Sem responsável", sem_responsavel)) if lista %}
+<p style="margin:16px 0 6px;font-weight:700;">{{ titulo }}</p>
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="font-size:14px;border-collapse:collapse;">
+  {% for c in lista %}
+  <tr><td style="padding:7px 0;border-top:1px solid #e3e7ed;white-space:nowrap;vertical-align:top;"><a href="{{ link_chamado(c.id) }}" style="color:#172033;font-weight:700;">{{ numero(c.id) }}</a></td>
+    <td style="padding:7px 10px;border-top:1px solid #e3e7ed;">{{ "Segurança da informação" if c.categoria == "seguranca" else c.assunto }}<br><span style="color:#667085;font-size:12.5px;">{{ c.solicitante_nome }} · {{ c.unidade_nome }} · {{ c.responsavel_nome or "ninguém" }}</span></td></tr>
+  {% endfor %}
+</table>
+{% endfor %}
+<p style="margin:22px 0 6px;"><a href="{{ link_fila }}" style="display:inline-block;background:#172033;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px;">Abrir a fila</a></p>
+{% endblock %}
+{% block rodape %}Resumo automático dos chamados de {{ empresa }}. Para desligar, vá em Configurações › Chamados.{% endblock %}

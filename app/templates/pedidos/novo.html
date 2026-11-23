@@ -1,0 +1,122 @@
+{% extends "base_colaborador.html" %}
+{% block titulo %}Novo pedido{% endblock %}
+{% set cat = form.get("categoria", "") %}
+{% set escolhido = form.get("equipamento", "") %}
+{% set lista_aberta = form.get("mostrar_lista") == "1" or not pode_este
+   or (escolhido and escolhido not in ("este", "origem") and cat == "computador") %}
+{% set voltar_para = 1 if passo < 3 or cat not in COM_EQUIPAMENTO else 2 %}
+{% block conteudo %}
+<form class="assistente" method="post" enctype="multipart/form-data" novalidate data-assistente
+      data-passo="{{ passo }}" data-com-equipamento="{{ COM_EQUIPAMENTO|join(' ') }}">
+  {# Enter num campo nunca deve voltar um passo nem trocar a categoria: este é o botão padrão do formulário #}
+  <button class="visualmente-oculto" type="submit" name="ir" value="{{ passo }}" formnovalidate tabindex="-1" aria-hidden="true" data-padrao></button>
+  {{ m.csrf() }}
+  <input type="hidden" name="categoria" value="{{ cat }}" data-campo-categoria>
+  <input type="hidden" name="equipamento" value="{{ escolhido }}" data-campo-equipamento>
+
+  <div class="passos">
+    <button class="ped-voltar" type="submit" name="ir" value="{{ voltar_para }}" formnovalidate data-voltar{% if passo == 1 %} hidden{% endif %}>{{ m.icone("voltar") }}Voltar</button>
+    <span class="passos__texto" data-passos-texto aria-live="polite">Passo {{ passo }} de 3</span>
+  </div>
+  <div class="passos__barra" aria-hidden="true" data-passos-barra>{% for p in (1, 2, 3) %}<span{% if p <= passo %} class="feito"{% endif %}></span>{% endfor %}</div>
+
+  {# ------------------------------------------------------------ passo 1 #}
+  <section class="passo" data-passo="1"{% if passo != 1 %} hidden{% endif %} aria-labelledby="t-passo-1">
+    <h1 class="ped-titulo" id="t-passo-1" tabindex="-1">O que está com problema?</h1>
+    <p class="ped-sub">Toque na opção mais parecida. Se não souber, escolha “Outra coisa”.</p>
+    {% if erros.categoria %}<p class="ped-erro" role="alert">{{ m.icone("alerta") }}{{ erros.categoria }}</p>{% endif %}
+    <div class="categorias">
+      {% for chave, dados in CATEGORIAS.items() %}
+      <button class="categoria{% if chave == 'seguranca' %} categoria--alerta{% endif %}" type="submit" name="escolher_categoria"
+              value="{{ chave }}" formnovalidate data-escolher-categoria="{{ chave }}" aria-pressed="{{ 'true' if cat == chave else 'false' }}"
+              data-exemplo="{{ EXEMPLOS[chave] }}">
+        <span class="categoria__icone">{{ m.icone(dados[2]) }}</span>{{ dados[1] }}
+      </button>
+      {% endfor %}
+    </div>
+  </section>
+
+  {# ------------------------------------------------------------ passo 2 (só Computador e Celular) #}
+  <section class="passo" data-passo="2"{% if passo != 2 %} hidden{% endif %}>
+    <div data-para="computador"{% if cat != "computador" %} hidden{% endif %}>
+      {% if pode_este %}
+      <h1 class="ped-titulo" tabindex="-1">O problema é neste computador?</h1>
+      <p class="ped-sub">Este é o computador que você está usando agora.</p>
+      <div class="duas-escolhas">
+        <button class="escolha escolha--sim" type="submit" name="escolher_equipamento" value="este" formnovalidate data-escolher-equipamento="este"
+                aria-pressed="{{ 'true' if escolhido in ('este', 'origem') else 'false' }}">
+          <span class="escolha__icone">{{ m.icone("ok") }}</span>
+          <span class="escolha__texto"><strong>Sim, neste</strong><span>O computador onde estou agora</span></span></button>
+        <button class="escolha" type="submit" name="escolher_equipamento" value="outro" formnovalidate data-abrir-lista
+                aria-expanded="{{ 'true' if lista_aberta else 'false' }}" aria-controls="lista-computadores">
+          <span class="escolha__icone">{{ m.icone("computador") }}</span>
+          <span class="escolha__texto"><strong>Não, é em outro</strong><span>Vou escolher na lista</span></span></button>
+      </div>
+      {% else %}
+      <h1 class="ped-titulo" tabindex="-1">Qual computador está com problema?</h1>
+      <p class="ped-sub">Escolha na lista. Se não souber, toque em “Não sei qual é”.</p>
+      {% endif %}
+      <div class="lista-painel{% if not pode_este %} lista-painel--direto{% endif %}" id="lista-computadores" data-lista-computadores{% if not lista_aberta %} hidden{% endif %}>
+        {% if pode_este %}<h2 class="lista-painel__titulo">Qual é o computador?</h2>{% endif %}
+        <div class="linhas">
+          {% for item in listas.computadores %}
+          <button class="linha" type="submit" name="escolher_equipamento" value="{{ item.valor }}" formnovalidate
+                  data-escolher-equipamento="{{ item.valor }}" aria-pressed="{{ 'true' if escolhido == item.valor and cat == 'computador' else 'false' }}">
+            {{- m.icone(item.icone) }}{{ item.rotulo }}</button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <div data-para="celular"{% if cat != "celular" %} hidden{% endif %}>
+      <h1 class="ped-titulo" tabindex="-1">Qual celular está com problema?</h1>
+      <p class="ped-sub">{% if opcoes.celulares %}Estes são os celulares da empresa que estão com você.{% else %}Escolha uma opção. Se não souber, toque em “Não sei qual é”.{% endif %}</p>
+      <div class="lista-painel lista-painel--direto">
+        <div class="linhas">
+          {% for item in listas.celulares %}
+          <button class="linha" type="submit" name="escolher_equipamento" value="{{ item.valor }}" formnovalidate
+                  data-escolher-equipamento="{{ item.valor }}" aria-pressed="{{ 'true' if escolhido == item.valor and cat == 'celular' else 'false' }}">
+            {{- m.icone(item.icone) }}{{ item.rotulo }}</button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {# ------------------------------------------------------------ passo 3 #}
+  <section class="passo" data-passo="3"{% if passo != 3 %} hidden{% endif %} aria-labelledby="t-passo-3">
+    <h1 class="ped-titulo" id="t-passo-3" tabindex="-1">Conte o que aconteceu</h1>
+    <p class="ped-sub ped-sub--curto">Escreva do seu jeito, como se estivesse falando com a TI.</p>
+    <div class="relato">
+      <div class="ped-alerta" data-aviso-seguranca{% if cat != "seguranca" %} hidden{% endif %}>
+        {{ m.icone("escudo-alerta") }}<div><strong>Não clique em mais nada naquele e-mail ou site</strong> e não apague a mensagem. Conte de onde veio e o que você já fez (por exemplo: “cliquei no link” ou “digitei minha senha”).</div>
+      </div>
+      <div class="relato__campo">
+        <label class="ped-rotulo" for="descricao">O que está acontecendo?</label>
+        <textarea class="ped-texto" id="descricao" name="descricao" rows="5" maxlength="4000" placeholder="{{ EXEMPLOS.get(cat, EXEMPLOS['outro']) }}"
+                  {% if erros.descricao %}aria-invalid="true" aria-describedby="erro-descricao aviso-senha"{% else %}aria-describedby="aviso-senha"{% endif %}>{{ form.get("descricao", "") }}</textarea>
+        {% if erros.descricao %}<p class="ped-erro" id="erro-descricao">{{ m.icone("alerta") }}{{ erros.descricao }}</p>{% endif %}
+        <p class="ped-aviso-senha" id="aviso-senha">{{ m.icone("cadeado") }}Não escreva senhas aqui. A TI nunca pede a sua senha.</p>
+      </div>
+      <fieldset class="impacto" data-impacto{% if cat == "seguranca" %} hidden{% endif %}>
+        <legend>Isso está impedindo o seu trabalho?</legend>
+        <div class="impacto__opcoes">
+          {% for chave, dados in IMPACTOS.items() %}
+          <label class="impacto__opcao"><input type="radio" name="impacto" value="{{ chave }}"{% if form.get('impacto') == chave %} checked{% endif %}>{{ dados[0] }}</label>
+          {% endfor %}
+        </div>
+        {% if erros.impacto %}<p class="ped-erro">{{ m.icone("alerta") }}{{ erros.impacto }}</p>{% endif %}
+      </fieldset>
+      <div class="anexo">
+        <span class="ped-rotulo" id="rotulo-anexo">Foto ou print <span class="ped-opcional">(se quiser)</span></span>
+        <label class="anexo__botao" for="anexo">{{ m.icone("clipe") }}<span data-anexo-nome>Anexar foto ou print</span></label>
+        <input class="anexo__entrada" type="file" id="anexo" name="anexo" accept="image/*,application/pdf" data-anexo>
+        {% if erros.anexo %}<p class="ped-erro">{{ m.icone("alerta") }}{{ erros.anexo }}</p>
+        {% elif form.get("descricao") and request.method == "POST" %}<p class="ped-ajuda">Se tinha escolhido uma foto, escolha de novo.</p>{% endif %}
+      </div>
+      <div class="relato__enviar">
+        <button class="ped-botao ped-botao--principal ped-botao--enviar" type="submit" name="enviar" value="1" data-enviar>Enviar para a TI</button>
+      </div>
+    </div>
+  </section>
+</form>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Revisão de acessos{% endblock %}
+{% block conteudo %}
+{% include "configuracoes/_abas.html" %}
+<section class="painel">
+  <div class="painel__cabecalho">
+    <h2>Revisão de acessos da equipe de TI</h2>
+    <span class="discreto pequeno">Gerado em {{ gerado_em.strftime("%d/%m/%Y %H:%M") }} · revisar a cada 6 meses</span>
+  </div>
+  <div class="painel__corpo">
+    <p class="secundario pequeno">Política de acesso (TISAX): a equipe de TI atua como equipe única. Os técnicos consultam os chamados de todas as unidades
+      para cobertura e troca de conhecimento, e atendem apenas os da sua unidade. Chamados de segurança da informação ficam restritos à unidade e ao administrador.</p>
+  </div>
+  <div class="tabela-rolagem">
+    <table class="tabela tabela-acessos">
+      <thead><tr><th>Pessoa</th><th>Perfil</th><th>Atende (desde, quem liberou)</th><th>Coberturas temporárias</th><th>Último acesso</th></tr></thead>
+      <tbody>
+      {% for u in relatorio.equipe %}
+      <tr>
+        <td><span class="titulo-celula">{{ u.nome }}</span><span class="sub">{{ u.login_ad or u.email }}{% if not u.ativo %} · desativado{% endif %}</span></td>
+        <td>{{ PERFIS[u.perfil] }}</td>
+        <td>{% for p in u.permanentes %}{{ p.nome }} <span class="sub">desde {{ p.criado_em|data or "—" }}{% if p.criado_por_nome %} · {{ p.criado_por_nome }}{% endif %}</span>{% else %}{{ "Todas" if u.perfil == "admin" else "—" }}{% endfor %}</td>
+        <td>{% for c in u.coberturas %}{{ c.nome }} <span class="sub">até {{ c.expira_em|data }}{% if c.criado_por_nome %} · {{ c.criado_por_nome }}{% endif %}</span>{% else %}—{% endfor %}</td>
+        <td class="num">{{ u.ultimo_acesso_em|datahora or "Nunca" }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="grade grade--lado mt-16">
+  <section class="painel" aria-labelledby="t-mudancas">
+    <div class="painel__cabecalho"><h2 id="t-mudancas">Mudanças de acesso nos últimos {{ relatorio.meses }} meses</h2></div>
+    {% if relatorio.eventos %}
+    <div class="tabela-rolagem">
+      <table class="tabela">
+        <thead><tr><th>Quando</th><th>Quem fez</th><th>O quê</th><th>Detalhes</th></tr></thead>
+        <tbody>
+        {% for e in relatorio.eventos %}
+        <tr><td class="num sem-quebra">{{ e.ocorrido_em|datahora }}</td><td>{{ e.usuario_nome or "Sistema" }}</td>
+          <td>{{ ACOES.get(e.acao, e.acao) }}{% if e.alvo %}: {{ e.alvo }}{% endif %}</td>
+          <td class="pequeno quebra">{{ e.detalhes or "" }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}{{ m.vazio("Nenhuma mudança no período") }}{% endif %}
+  </section>
+  <aside class="painel" aria-labelledby="t-emergencia">
+    <div class="painel__cabecalho"><h2 id="t-emergencia">Usos da conta local</h2></div>
+    <div class="painel__corpo">
+      {% if relatorio.emergencia %}
+      <ul class="pendencias">{% for e in relatorio.emergencia %}<li class="pendencia"><span class="pendencia__texto">{{ e.usuario_nome }}<small>{{ e.ocorrido_em|datahora }} · {{ e.ip }}</small></span></li>{% endfor %}</ul>
+      {% else %}<p class="discreto">Nenhum uso no período.</p>{% endif %}
+    </div>
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "emails/_base.html" %}
+{% block corpo %}
+<p style="margin:0 0 14px;font-size:20px;font-weight:700;">Termo assinado</p>
+<p style="margin:0 0 14px;">Olá, {{ primeiro_nome }}. A sua assinatura do termo de responsabilidade do aparelho <strong>{{ termo.marca }} {{ termo.modelo }}</strong> foi registrada em {{ termo.assinado_em|datahora }}.</p>
+<p style="margin:0 0 14px;">A cópia assinada está anexada a este e-mail em PDF. Guarde-a com os seus documentos.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px 0;width:100%;font-size:14px;">
+  <tr><td style="padding:6px 0;color:#475467;width:46%;">Termo</td><td style="padding:6px 0;font-weight:600;">{{ termo.codigo }}</td></tr>
+  <tr><td style="padding:6px 0;color:#475467;">Código de verificação</td><td style="padding:6px 0;font-weight:600;">{{ termo.codigo_verificacao }}</td></tr>
+</table>
+<p style="margin:0 0 6px;font-size:13px;color:#475467;">Para conferir a autenticidade do documento: <a href="{{ url_verificacao }}" target="_blank" style="color:#1f4bb8;">{{ url_verificacao }}</a>. Você também encontra os seus termos no <a href="{{ url_portal }}" target="_blank" style="color:#1f4bb8;">portal do colaborador</a>.</p>
+{% if contato_ti %}<p style="margin:12px 0 0;font-size:13px;color:#475467;">Dúvidas: <a href="mailto:{{ contato_ti }}" style="color:#1f4bb8;">{{ contato_ti }}</a>.</p>{% endif %}
+{% endblock %}

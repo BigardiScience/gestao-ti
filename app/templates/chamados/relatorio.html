@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Relatório de chamados · {{ dados.titulo }}{% endblock %}
+{% set t = dados.total %}
+{% macro pct(v) %}{% if v is none %}—{% else %}{{ ("%.1f"|format(v)).replace(".", ",") }}%{% endif %}{% endmacro %}
+{% macro horas(minutos) %}{% if minutos is none %}—{% else %}{{ minutos|duracao_util }}{% endif %}{% endmacro %}
+{% macro tabela(titulo, grupos) %}
+<section class="painel">
+  <div class="painel__cabecalho"><h2>{{ titulo }}</h2></div>
+  {% if grupos %}
+  <div class="tabela-rolagem"><table class="tabela rel-tabela">
+    <thead><tr><th scope="col"></th><th scope="col" class="num">Resolvidos</th><th scope="col" class="num">No prazo</th>
+      <th scope="col" class="num">Fora do prazo</th><th scope="col" class="num">% no prazo</th><th scope="col" class="num">Tempo médio</th></tr></thead>
+    <tbody>{% for g in grupos %}<tr><th scope="row">{{ g.nome }}</th><td class="num">{{ g.resolvidos }}</td><td class="num">{{ g.no_prazo }}</td>
+      <td class="num{% if g.fora_prazo %} rel-fora{% endif %}">{{ g.fora_prazo }}</td><td class="num">{{ pct(g.pct_no_prazo) }}</td><td class="num">{{ horas(g.tempo_medio_min) }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="painel__corpo discreto">Nenhum chamado resolvido no mês.</p>{% endif %}
+</section>
+{% endmacro %}
+{% block conteudo %}
+{% call m.cabecalho("Relatório de chamados", voltar=url_for('chamados.fila'), voltar_rotulo="Chamados") %}
+  <a class="botao botao--primario" href="{{ url_for('chamados.relatorio_planilha', mes=mes_valor, unidade=unidade) }}">{{ m.icone("planilha") }}Baixar planilha (Excel)</a>
+{% endcall %}
+
+<form class="rel-filtros" method="get" action="{{ url_for('chamados.relatorio') }}">
+  <label class="ch-campo">Mês<input type="month" name="mes" value="{{ mes_valor }}" required></label>
+  <label class="ch-campo">Unidade<select name="unidade"><option value="">Todas</option>
+    {% for u in unidades %}<option value="{{ u.id }}"{% if u.id == unidade %} selected{% endif %}>{{ u.nome }}</option>{% endfor %}</select></label>
+  <button class="botao" type="submit">Ver</button>
+</form>
+
+<h2 class="rel-titulo">{{ dados.titulo|capitalize }}</h2>
+<div class="rel-numeros">
+  <div class="rel-numero"><strong>{{ t.resolvidos }}</strong><span>Resolvidos</span></div>
+  <div class="rel-numero rel-numero--ok"><strong>{{ t.no_prazo }}</strong><span>Dentro do prazo</span></div>
+  <div class="rel-numero{% if t.fora_prazo %} rel-numero--fora{% endif %}"><strong>{{ t.fora_prazo }}</strong><span>Fora do prazo</span></div>
+  <div class="rel-numero"><strong>{{ pct(t.pct_no_prazo) }}</strong><span>% dentro do prazo</span></div>
+  <div class="rel-numero"><strong>{{ horas(t.tempo_medio_min) }}</strong><span>Tempo médio de resolução</span></div>
+  <div class="rel-numero"><strong>{{ t.abertos }}</strong><span>Abertos no mês</span></div>
+</div>
+<p class="rel-nota">Conta o chamado no mês em que a TI o resolveu (se foi reaberto, vale a última vez). O prazo é em horário útil
+  e não conta o tempo em “Aguardando usuário”; “dentro ou fora” fica gravado na hora em que resolve.
+  {% if t.sem_resposta %}{{ t.sem_resposta }} {{ "chamado encerrado" if t.sem_resposta == 1 else "chamados encerrados" }} sem resposta do usuário não {{ "entra" if t.sem_resposta == 1 else "entram" }} na conta (estão na planilha).{% endif %}</p>
+
+<div class="rel-grade">
+  {{ tabela("Por unidade", dados.por_unidade) }}
+  {{ tabela("Por prioridade", dados.por_prioridade) }}
+  {{ tabela("Por responsável", dados.por_responsavel) }}
+  {{ tabela("Por categoria", dados.por_categoria) }}
+</div>
+
+{% set fora = dados.resolvidos|rejectattr("no_prazo")|list %}
+<section class="painel">
+  <div class="painel__cabecalho"><h2>Resolvidos fora do prazo</h2></div>
+  {% if fora %}
+  <div class="tabela-rolagem"><table class="tabela">
+    <thead><tr><th scope="col">Nº</th><th scope="col">Pedido</th><th scope="col">Unidade</th><th scope="col">Prioridade</th>
+      <th scope="col">Prazo</th><th scope="col">Resolvido</th><th scope="col">Responsável</th></tr></thead>
+    <tbody>{% for c in fora %}<tr>
+      <td class="fila__numero"><a href="{{ url_for('chamados.detalhe', chamado_id=c.id) }}">#{{ c.id|numero_chamado }}</a></td>
+      <td><a class="fila__assunto" href="{{ url_for('chamados.detalhe', chamado_id=c.id) }}">{{ c.assunto }}</a></td>
+      <td>{{ c.unidade_nome }}</td><td>{{ PRIORIDADES_CHAMADO[c.prioridade] }}</td>
+      <td>{{ c.prazo_em|datahora }}</td><td>{{ c.resolvido_em|datahora }}</td><td>{{ c.responsavel_nome or "—" }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="painel__corpo discreto">{% if t.resolvidos %}Todos os chamados do mês foram resolvidos dentro do prazo.{% else %}Nenhum chamado resolvido no mês.{% endif %}</p>{% endif %}
+</section>
+{% endblock %}

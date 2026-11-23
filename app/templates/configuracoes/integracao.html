@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Integração com o Outlook{% endblock %}
+{% set status = cfg("graph_status") %}
+{% block conteudo %}
+{% include "configuracoes/_abas.html" %}
+
+<div class="grade grade--lado">
+  <div class="pilha">
+    <section class="painel" aria-labelledby="t-situacao">
+      <div class="painel__cabecalho">
+        <h2 id="t-situacao">Situação</h2>
+        {% if cfg("email_modo") != "graph" %}<span class="selo selo--simulado">Simulação</span>
+        {% elif status == "ok" %}<span class="selo selo--assinado">Conectado</span>
+        {% elif status == "erro" %}<span class="selo selo--falha">Com erro</span>
+        {% else %}<span class="selo selo--enviado">Aguardando teste</span>{% endif %}
+      </div>
+      <div class="painel__corpo">
+        {% if cfg("email_modo") != "graph" %}
+        <p>Nenhum e-mail sai do servidor. As mensagens ficam em <a href="{{ url_for('configuracoes.emails') }}">E-mails enviados</a>.</p>
+        {% else %}
+        <p>Enviando {% if cfg("graph_autenticacao") == "aplicativo" %}como <strong>{{ cfg("graph_remetente") }}</strong>{% else %}pela conta <strong>{{ cfg("graph_conta") or "não conectada" }}</strong>{% if cfg("graph_remetente") %} em nome de {{ cfg("graph_remetente") }}{% endif %}{% endif %}.</p>
+        {% if cfg("graph_verificado_em") %}<p class="pequeno discreto">Último teste {{ cfg("graph_verificado_em")|quando }}: {{ cfg("graph_status_mensagem") }}</p>{% endif %}
+        {% endif %}
+      </div>
+    </section>
+
+    {% if resultado %}
+    <section class="painel" aria-labelledby="t-teste" role="status">
+      <div class="painel__cabecalho"><h2 id="t-teste">Resultado do teste</h2>{% if resultado.ok %}<span class="selo selo--assinado">Tudo certo</span>{% else %}<span class="selo selo--falha">Falhou</span>{% endif %}</div>
+      <div class="painel__corpo">
+        <ul class="etapas">
+          {% for nivel, texto in resultado.etapas %}
+          <li><span class="{{ 'ok' if nivel == 'ok' else ('erro' if nivel == 'erro' else 'aviso-cor') }}">{{ m.icone("ok-circulo" if nivel == "ok" else ("erro" if nivel == "erro" else "alerta")) }}</span><span>{{ texto }}</span></li>
+          {% endfor %}
+        </ul>
+      </div>
+    </section>
+    {% endif %}
+
+    <form class="painel" method="post" novalidate aria-labelledby="t-config">
+      {{ m.csrf() }}
+      <input type="hidden" name="acao" value="salvar">
+      <div class="painel__cabecalho"><h2 id="t-config">Configuração</h2></div>
+      <div class="painel__corpo">
+        <div class="grade-form">
+          <div class="campo campo--largo">
+            <span class="rotulo" id="rotulo-modo">Envio dos e-mails</span>
+            <div class="escolhas" role="radiogroup" aria-labelledby="rotulo-modo">
+              {% for chave, rotulo in modos.items() %}
+              <label class="escolha"><input type="radio" name="email_modo" value="{{ chave }}" {% if form.get('email_modo') == chave %}checked{% endif %}>
+                <span class="escolha__caixa"><strong>{{ rotulo.split(" (")[0] }}</strong></span></label>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="campo campo--largo">
+            <span class="rotulo" id="rotulo-autenticacao">Autenticação</span>
+            <div class="escolhas" role="radiogroup" aria-labelledby="rotulo-autenticacao">
+              <label class="escolha"><input type="radio" name="graph_autenticacao" value="aplicativo" {% if form.get('graph_autenticacao') != 'delegado' %}checked{% endif %}>
+                <span class="escolha__caixa"><strong>Aplicativo + caixa compartilhada</strong><span>Recomendado</span></span></label>
+              <label class="escolha"><input type="radio" name="graph_autenticacao" value="delegado" {% if form.get('graph_autenticacao') == 'delegado' %}checked{% endif %}>
+                <span class="escolha__caixa"><strong>Conta Microsoft conectada</strong></span></label>
+            </div>
+          </div>
+          {{ m.campo("graph_tenant_id", "ID do diretório (locatário)", form, erros, attrs='placeholder="00000000-0000-0000-0000-000000000000" autocomplete="off" spellcheck="false"') }}
+          {{ m.campo("graph_client_id", "ID do aplicativo (cliente)", form, erros, attrs='placeholder="00000000-0000-0000-0000-000000000000" autocomplete="off" spellcheck="false"') }}
+          <div class="campo{% if erros.get('graph_client_secret') %} campo--erro{% endif %}">
+            <label for="c-segredo">Segredo do cliente</label>
+            <input id="c-segredo" type="password" name="graph_client_secret" autocomplete="new-password" spellcheck="false"
+                   placeholder="{{ 'Já cadastrado (em branco mantém)' if tem_segredo else 'Cole o valor do segredo' }}">
+            <span class="campo__ajuda">Guardado cifrado; nunca é mostrado de novo.</span>
+            {{ m.erro_campo(erros, "graph_client_secret") }}
+          </div>
+          {{ m.campo("graph_remetente", "Caixa remetente", form, erros, tipo="email", attrs='placeholder="celulares@empresa.com.br" autocomplete="off"') }}
+        </div>
+        <div data-mostrar-quando="graph_autenticacao=delegado" hidden class="pilha mt-16">
+          <div class="campo">
+            <span class="rotulo">Endereço de retorno (cadastre no aplicativo, plataforma Web)</span>
+            <div class="caixa-codigo"><code>{{ redirect_uri }}</code><button class="botao botao--p" type="button" data-copiar="{{ redirect_uri }}">Copiar</button></div>
+          </div>
+          <div class="botoes">
+            <a class="botao" href="{{ url_for('configuracoes.conectar_microsoft') }}">{{ m.icone("link") }}{{ "Reconectar" if cfg("graph_conta") else "Conectar" }} conta Microsoft</a>
+            {% if cfg("graph_conta") %}<span class="secundario">Conectada: <strong>{{ cfg("graph_conta") }}</strong></span>{% endif %}
+          </div>
+        </div>
+        <div class="rodape-form"><button class="botao botao--primario" type="submit">Salvar</button></div>
+      </div>
+    </form>
+
+    <form class="painel" method="post" novalidate aria-labelledby="t-testar">
+      {{ m.csrf() }}
+      <input type="hidden" name="acao" value="testar">
+      <div class="painel__cabecalho"><h2 id="t-testar">Testar conexão</h2></div>
+      <div class="painel__corpo">
+        <div class="grade-form">
+          {{ m.campo("destino_teste", "Enviar um e-mail de teste para (opcional)", form, erros, tipo="email") }}
+        </div>
+        <div class="rodape-form">
+          {% if tem_segredo or cfg("graph_conta") %}
+          <button class="botao botao--perigo" type="submit" form="form-desconectar">Desconectar</button>
+          <span class="flex-1"></span>
+          {% endif %}
+          <button class="botao botao--primario" type="submit">{{ m.icone("enviar") }}Testar conexão</button>
+        </div>
+      </div>
+    </form>
+    {% if tem_segredo or cfg("graph_conta") %}
+    <form id="form-desconectar" method="post" action="{{ url_for('configuracoes.desconectar_microsoft') }}" data-confirmar="O segredo e a conta conectada serão apagados e o sistema volta ao modo de simulação."
+          data-confirmar-titulo="Desconectar a integração?" data-confirmar-botao="Desconectar" data-confirmar-perigo="1">{{ m.csrf() }}</form>
+    {% endif %}
+  </div>
+
+  <details class="painel recolhivel">
+    <summary>Como configurar no Microsoft Entra ID</summary>
+    <div class="painel__corpo">
+      <ol class="passos-guia">
+        <li>No <strong>Exchange admin center</strong>, crie a caixa compartilhada que vai enviar os termos (ex.: <code>celulares@empresa.com.br</code>).</li>
+        <li>Em <strong>entra.microsoft.com</strong>: <em>Aplicativos &gt; Registros de aplicativo &gt; Novo registro</em>, só neste diretório.</li>
+        <li>Copie o <strong>ID do aplicativo</strong> e o <strong>ID do diretório</strong>.</li>
+        <li>Em <em>Certificados e segredos</em>, crie um segredo e copie o <strong>Valor</strong> (aparece uma vez só).</li>
+        <li><strong>Modo aplicativo:</strong> permissão de aplicativo <code>Mail.Send</code> com consentimento do administrador. Para limitar o envio à caixa compartilhada, veja <code>docs/INTEGRACAO-OUTLOOK.md</code>.</li>
+        <li><strong>Conta conectada:</strong> permissões delegadas <code>Mail.Send</code>, <code>Mail.Send.Shared</code>, <code>User.Read</code> e <code>offline_access</code>, e o endereço de retorno em <em>Autenticação &gt; Web</em>.</li>
+        <li>Preencha, salve, teste e escolha “Microsoft 365”.</li>
+      </ol>
+    </div>
+  </details>
+</div>
+{% endblock %}

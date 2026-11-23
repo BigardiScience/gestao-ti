@@ -1,0 +1,93 @@
+{% extends "base_publica.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Assinar termo {{ termo.codigo }}{% endblock %}
+{% block cabeca %}<script src="{{ estatico('js/assinatura.js') }}" defer></script>{% endblock %}
+{% block topo_direita %}{% if metodo == "portal" %}<a class="botao botao--p" href="{{ url_for('portal.inicio') }}">{{ m.icone("voltar", "icone--p") }}Meus termos</a>{% endif %}{% endblock %}
+{% set tipo = form.get("tipo_assinatura", "desenho") %}
+{% block conteudo %}
+<h1>Termo de responsabilidade</h1>
+<p class="secundario mt-6">Olá, {{ termo.colaborador_nome.split()[0] }}. Leia o termo do celular {{ termo.marca }} {{ termo.modelo }} e assine no final.</p>
+
+{% if erros %}
+<div class="aviso aviso--erro mt-16" role="alert">{{ m.icone("erro") }}<div class="aviso__texto">Confira os pontos destacados abaixo.</div></div>
+{% endif %}
+
+<ol class="passos mt-20">
+  <li class="passo">
+    <h2>Leia o termo</h2>
+    <div class="passo__corpo painel">
+      {% include "termos/_documento.html" %}
+      {% if metodo == "portal" %}<p class="mt-10"><a href="{{ url_for('portal.pdf', termo_id=termo.id) }}">{{ m.icone("baixar", "icone--p") }} Baixar este termo em PDF</a></p>{% endif %}
+    </div>
+  </li>
+
+  <li class="passo">
+    <h2>Confirme sua identidade</h2>
+    <form id="form-assinatura" method="post" action="{{ acao_url }}" novalidate class="passo__corpo pilha">
+      {{ m.csrf() }}
+      <div class="grade-form">
+        {{ m.campo("cpf", "CPF", form, erros, obrigatorio=True, attrs='inputmode="numeric" data-mascara="cpf" autocomplete="off" placeholder="000.000.000-00"') }}
+        {% if exige_codigo %}
+        <div class="campo{% if erros.get('codigo') %} campo--erro{% endif %}">
+          <label for="c-codigo">Código recebido por e-mail</label>
+          <input id="c-codigo" type="text" name="codigo" value="{{ form.get('codigo', '') }}" inputmode="numeric" autocomplete="one-time-code" maxlength="6" data-mascara="codigo" placeholder="000000">
+          {% if codigo_enviado_para %}<span class="campo__ajuda">Enviado para {{ codigo_enviado_para }} (veja também o lixo eletrônico). Vale 15 minutos.</span>{% endif %}
+          {{ m.erro_campo(erros, "codigo") }}
+        </div>
+        {% endif %}
+      </div>
+      {% if exige_codigo %}
+      <div class="botoes"><button class="botao" type="submit" name="acao" value="enviar_codigo" formnovalidate>{{ m.icone("email") }}{{ "Enviar outro código" if codigo_enviado_para else "Enviar código para o meu e-mail" }}</button></div>
+      {% endif %}
+    </form>
+  </li>
+
+  <li class="passo">
+    <h2>Assine</h2>
+    <div class="passo__corpo pilha">
+      <div class="segmentado" role="radiogroup" aria-label="Forma de assinar">
+        <label><input type="radio" form="form-assinatura" name="tipo_assinatura" value="desenho" {% if tipo != "digitada" %}checked{% endif %}><span>Desenhar</span></label>
+        <label><input type="radio" form="form-assinatura" name="tipo_assinatura" value="digitada" {% if tipo == "digitada" %}checked{% endif %}><span>Digitar</span></label>
+      </div>
+      <div data-mostrar-quando="tipo_assinatura=desenho" class="pilha">
+        <div class="quadro-assinatura" data-quadro-assinatura>
+          <canvas aria-label="Quadro para desenhar a assinatura"></canvas>
+          <div class="quadro-assinatura__linha"></div>
+          <span class="quadro-assinatura__dica">Assine aqui</span>
+        </div>
+        <input type="hidden" form="form-assinatura" name="tracos" value="{{ form.get('tracos', '') }}">
+        <div class="botoes">
+          <button class="botao botao--p" type="button" data-desfazer-assinatura>Desfazer</button>
+          <button class="botao botao--p botao--fantasma" type="button" data-limpar-assinatura>Limpar</button>
+        </div>
+        {{ m.erro_campo(erros, "tracos") }}
+      </div>
+      <div data-mostrar-quando="tipo_assinatura=digitada" hidden>
+        <div class="assinatura-digitada" data-espelho-nome aria-live="polite"></div>
+      </div>
+
+      <div class="campo{% if erros.get('nome') %} campo--erro{% endif %}">
+        <label for="c-nome">Nome completo<span class="obrigatorio" aria-hidden="true">*</span></label>
+        <input id="c-nome" type="text" form="form-assinatura" name="nome" value="{{ form.get('nome', '') }}" autocomplete="name" required>
+        <span class="campo__ajuda">Como no cadastro: {{ termo.colaborador_nome }}.</span>
+        {{ m.erro_campo(erros, "nome") }}
+      </div>
+
+      <div>
+        <label class="marcacao">
+          <input type="checkbox" form="form-assinatura" name="aceite" value="1" {% if form.get('aceite') %}checked{% endif %}>
+          <span class="marcacao__texto">Li e concordo com o termo e com a assinatura eletrônica.
+            <small>Registramos data, hora, IP e navegador. Você recebe o PDF por e-mail.</small></span>
+        </label>
+        {{ m.erro_campo(erros, "aceite") }}
+      </div>
+
+      <div class="botoes">
+        <button class="botao botao--primario" type="submit" form="form-assinatura" name="acao" value="assinar">{{ m.icone("caneta") }}Assinar termo</button>
+      </div>
+      <p class="pequeno discreto">{{ aviso_privacidade }}</p>
+      <p class="pequeno discreto">Documento {{ termo.codigo }}, SHA-256 <span class="hash">{{ termo.hash_conteudo }}</span>.</p>
+    </div>
+  </li>
+</ol>
+{% endblock %}

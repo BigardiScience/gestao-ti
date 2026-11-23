@@ -1,0 +1,33 @@
+{% extends "base_colaborador.html" %}
+{% from "pedidos/_selo.html" import selo %}
+{% block titulo %}Meus pedidos{% endblock %}
+{% block conteudo %}
+<div class="ped-cabecalho">
+  <h1>Meus pedidos</h1>
+  <a class="ped-botao ped-botao--principal ped-botao--grande" href="{{ url_for('pedidos.novo') }}">{{ m.icone("mais") }}Fazer novo pedido</a>
+</div>
+{% if pedidos %}
+<div class="pedidos">
+  {% for p in pedidos %}
+  <article class="pedido pedido--{{ p.situacao }}">
+    {{ selo(p.situacao) }}
+    <span class="pedido__novas" data-novas-pedido="{{ p.id }}"{% if not p.nao_lidas %} hidden{% endif %}
+          title="{{ p.nao_lidas }} {{ 'resposta nova' if p.nao_lidas == 1 else 'respostas novas' }} da TI">{{ p.nao_lidas }}<span class="visualmente-oculto"> {{ "resposta nova" if p.nao_lidas == 1 else "respostas novas" }} da TI</span></span>
+    <h2 class="pedido__titulo"><a href="{{ url_for('pedidos.detalhe', chamado_id=p.id) }}">{{ p.assunto }}</a></h2>
+    <p class="pedido__meta">Pedido {{ p.id|numero_chamado }} · {% if p.situacao in ("resolvido", "fechado") and (p.resolvido_em or p.fechado_em) %}{{ "resolvido" if p.situacao == "resolvido" else "encerrado" }} {{ (p.resolvido_em or p.fechado_em)|quando_frase }}{% else %}aberto {{ p.criado_em|quando_frase }}{% endif %}</p>
+    {% if p.situacao == "aguardando" %}
+    <div class="pedido__acao"><a class="ped-botao ped-botao--principal ped-botao--grande" href="{{ url_for('pedidos.detalhe', chamado_id=p.id) }}#responder">Responder</a></div>
+    {% elif p.pode_reabrir %}
+    <div class="pedido__acao"><a class="pedido__link" href="{{ url_for('pedidos.detalhe', chamado_id=p.id) }}#reabrir">Ainda com problema? Avise a TI</a></div>
+    {% endif %}
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="ped-cartao vazio-ped">
+  <h2>Você ainda não fez nenhum pedido</h2>
+  <p>Quando algo não estiver funcionando, faça um pedido e acompanhe por aqui.</p>
+  <a class="ped-botao ped-botao--principal ped-botao--grande" href="{{ url_for('pedidos.novo') }}">{{ m.icone("mais") }}Fazer um pedido</a>
+</div>
+{% endif %}
+{% endblock %}

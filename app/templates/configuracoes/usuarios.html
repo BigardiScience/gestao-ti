@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Usuários{% endblock %}
+{% block conteudo %}
+{% include "configuracoes/_abas.html" %}
+<nav class="chips mb-16" aria-label="Tipo de usuário">
+  <a class="chip{% if lista == 'ti' %} chip--ativo{% endif %}" href="{{ url_for('configuracoes.usuarios') }}"{% if lista == 'ti' %} aria-current="true"{% endif %}>Equipe de TI</a>
+  <a class="chip{% if lista == 'colaboradores' %} chip--ativo{% endif %}" href="{{ url_for('configuracoes.usuarios', lista='colaboradores') }}"{% if lista == 'colaboradores' %} aria-current="true"{% endif %}>Colaboradores</a>
+</nav>
+{% if lista == "ti" %}
+<section class="painel">
+  <div class="painel__cabecalho">
+    <h2>Equipe de TI <span class="discreto num">{{ usuarios|length }}</span></h2>
+    <div class="botoes">
+      <a class="botao botao--p" href="{{ url_for('configuracoes.acessos') }}">{{ m.icone("relatorio", "icone--p") }}Revisão de acessos</a>
+      <a class="botao botao--primario botao--p" href="{{ url_for('configuracoes.usuario_novo') }}">{{ m.icone("mais", "icone--p") }}Adicionar usuário</a>
+    </div>
+  </div>
+  {% if not ad_ativo %}
+  <div class="aviso aviso--info aviso--faixa">{{ m.icone("info") }}<div class="aviso__texto">O login pelo AD está desligado: só as contas locais conseguem entrar. Ligue em Configurações › Active Directory.</div></div>
+  {% endif %}
+  <div class="tabela-rolagem">
+    <table class="tabela tabela--cartoes">
+      <thead><tr><th>Nome</th><th>Perfil e unidades</th><th>Último acesso</th><th><span class="visualmente-oculto">Ações</span></th></tr></thead>
+      <tbody>
+      {% for u in usuarios %}
+        <tr>
+          <td><a class="titulo-celula" href="{{ url_for('configuracoes.usuario_editar', usuario_id=u.id) }}">{{ u.nome }}</a>
+            <span class="sub">{% if u.origem == "ad" %}{{ u.login_ad }} · Windows (AD){% else %}{{ u.login_ad or u.email }} · conta local{% if u.perfil == "admin" %} (emergência){% else %} (teste){% endif %}{% endif %}</span></td>
+          <td data-celular="linha">{{ PERFIS[u.perfil] }}
+            {% if u.perfil == "tecnico" %}<span class="sub">Atende {{ u.unidades|join(", ") or "nenhuma unidade" }}{% for c in u.coberturas %} · cobre {{ c.nome }} até {{ c.expira_em|data }}{% endfor %}</span>
+            {% elif u.perfil == "consulta" %}<span class="sub">{{ u.unidades|join(", ") or "Todas as unidades" }}</span>{% endif %}
+            {% if not u.ativo %}<span class="selo selo--desligado">Desativado</span>
+            {% elif u.bloqueado_ate and u.bloqueado_ate > agora_bd() %}<span class="selo selo--falha">Bloqueado</span>
+            {% elif u.deve_trocar_senha %}<span class="selo selo--enviado">Senha temporária</span>
+            {% elif u.origem == "ad" and not u.ad_sincronizado_em %}<span class="selo selo--gerado">Ainda não entrou</span>{% endif %}</td>
+          <td class="num" data-celular="oculto">{{ u.ultimo_acesso_em|quando or "Nunca" }}</td>
+          <td class="celula-acoes" data-celular="direita">
+            {% call m.mais_acoes("Ações de " ~ u.nome) %}
+              <a href="{{ url_for('configuracoes.usuario_editar', usuario_id=u.id) }}">{{ m.icone("editar") }}Editar</a>
+              {% if u.origem == "local" %}
+              <form method="post" action="{{ url_for('configuracoes.usuario_senha', usuario_id=u.id) }}"
+                    data-confirmar="Uma nova senha temporária será gerada e as sessões abertas de {{ u.nome }} serão encerradas." data-confirmar-titulo="Redefinir senha?" data-confirmar-botao="Redefinir">
+                {{ m.csrf() }}<button type="submit">{{ m.icone("chave") }}Redefinir senha</button></form>
+              {% endif %}
+              {% if u.id != usuario.id %}
+              <form method="post" action="{{ url_for('configuracoes.usuario_excluir', usuario_id=u.id) }}"
+                    data-confirmar="Só contas que nunca registraram nada podem ser excluídas. As demais devem ser desativadas, para manter o histórico." data-confirmar-titulo="Excluir {{ u.nome }}?" data-confirmar-botao="Excluir" data-confirmar-perigo="1">
+                {{ m.csrf() }}<button class="perigo" type="submit">{{ m.icone("lixeira") }}Excluir</button></form>
+              {% endif %}
+            {% endcall %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+<section class="painel">
+  <form class="barra" method="get" role="search" aria-label="Buscar colaboradores">
+    <input type="hidden" name="lista" value="colaboradores">
+    <label class="barra__busca">{{ m.icone("busca", "icone--p") }}<span class="visualmente-oculto">Buscar</span>
+      <input type="search" name="q" value="{{ busca }}" placeholder="Nome, login, setor ou unidade"></label>
+    <span class="discreto pequeno">Quem entra pelo AD sem marcação é colaborador e só vê os próprios pedidos. Para colocar alguém na TI, abra o cadastro e mude o perfil.</span>
+    <a class="botao botao--p" href="{{ url_for('configuracoes.usuario_novo', perfil='colaborador', origem='local') }}">{{ m.icone("mais", "icone--p") }}Colaborador de teste</a>
+  </form>
+  {% if pagina.itens %}
+  <div class="tabela-rolagem">
+    <table class="tabela tabela--cartoes">
+      <thead><tr><th>Nome</th><th>Setor e unidade</th><th>Pedidos</th><th>Último acesso</th></tr></thead>
+      <tbody>
+      {% for u in pagina %}
+        <tr>
+          <td><a class="titulo-celula" href="{{ url_for('configuracoes.usuario_editar', usuario_id=u.id) }}">{{ u.nome }}</a><span class="sub">{{ u.login_ad or "sem usuário do Windows" }}{% if u.origem == "local" %} · conta local (teste){% endif %}{% if not u.ativo %} · desativado{% endif %}</span></td>
+          <td data-celular="linha">{{ u.setor or "—" }}<span class="sub">{{ u.unidade_nome or "—" }}</span></td>
+          <td class="num" data-celular="linha">{{ u.pedidos }}</td>
+          <td class="num" data-celular="oculto">{{ u.ultimo_acesso_em|quando or "Nunca entrou" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ m.paginacao(pagina) }}
+  {% else %}
+  {{ m.vazio("Nenhum colaborador" ~ (" encontrado" if busca else " ainda"), "Os colaboradores aparecem aqui depois do primeiro acesso pelo usuário do Windows." if not busca else None) }}
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

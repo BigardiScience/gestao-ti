@@ -1,0 +1,41 @@
+{% import "_macros.html" as m %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Entrar | Pedidos para a TI</title>
+  <link rel="icon" href="{{ estatico('img/marca.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ estatico('css/pedidos.css') }}">
+  <script src="{{ estatico('js/pedidos.js') }}" defer></script>
+</head>
+<body>
+<main class="entrar" id="conteudo">
+  <section class="entrar__caixa" aria-labelledby="t-entrar">
+    <div class="entrar__topo">
+      <span class="entrar__simbolo">{{ m.icone("computador") }}</span>
+      <h1 id="t-entrar">Pedidos para a TI</h1>
+      <p>Entre com o mesmo usuário e senha que você usa para ligar o computador.</p>
+    </div>
+    {{ m.avisos(fechar=False) }}
+    {% if erro %}<div class="aviso aviso--erro" role="alert">{{ m.icone("erro") }}<div class="aviso__texto">{{ erro }}</div></div>{% endif %}
+    <form method="post" novalidate>
+      {{ m.csrf() }}
+      <div class="entrar__campo">
+        <label class="ped-rotulo" for="usuario">Usuário</label>
+        <input class="ped-entrada" id="usuario" name="usuario" value="{{ digitado }}" placeholder="Ex.: maria.silva" autocomplete="username"
+               autocapitalize="none" spellcheck="false" required {% if not digitado %}autofocus{% endif %}>
+      </div>
+      <div class="entrar__campo">
+        <label class="ped-rotulo" for="senha">Senha</label>
+        <input class="ped-entrada" id="senha" type="password" name="senha" autocomplete="current-password" required {% if digitado %}autofocus{% endif %}>
+      </div>
+      <button class="ped-botao ped-botao--principal ped-botao--bloco entrar__botao" type="submit">Entrar</button>
+    </form>
+    <p class="entrar__ajuda">Esqueceu a senha? {{ cfg("chamados_contato_ti") or "Fale com a TI." }}</p>
+  </section>
+  <p class="entrar__extra"><a href="{{ url_for('portal.entrar') }}">Termo do celular corporativo</a></p>
+</main>
+</body>
+</html>

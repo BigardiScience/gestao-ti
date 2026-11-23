@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Busca{% endblock %}
+{% block conteudo %}
+{{ m.cabecalho("Busca por “" ~ termo ~ "”") }}
+
+{% if not termos and not aparelhos.itens and not colaboradores.itens and not computadores.itens %}
+<section class="painel">{{ m.vazio("Nada encontrado", "Tente o nome da máquina, o IP, o usuário, o IMEI, a linha ou o número do termo.") }}</section>
+{% endif %}
+
+{% if computadores.itens %}
+<section class="painel">
+  <div class="painel__cabecalho"><h2>Computadores <span class="discreto num">{{ computadores.total|milhar }}</span></h2>
+    {% if computadores.total > computadores.itens|length %}<a href="{{ url_for('computadores.lista', q=termo, unidade='todas', situacao='todos') }}">Ver todos</a>{% endif %}</div>
+  <table class="tabela tabela--cartoes">
+    <thead><tr><th>Máquina</th><th>Usuário</th><th>Situação</th></tr></thead>
+    <tbody>{% for c in computadores %}
+      <tr>
+        <td><a class="titulo-celula" href="{{ url_for('computadores.detalhe', computador_id=c.id) }}">{{ c.nome }}</a><span class="sub">{{ TIPOS_COMPUTADOR[c.tipo] }} · {{ c.unidade_nome }}{% if ve_dados_de_rede() and c.ip %} · {{ c.ip }}{% endif %}</span></td>
+        <td data-celular="linha">{{ c.usuario_nome or c.usuario_login or "—" }}</td>
+        <td data-celular="direita">{{ m.selo_computador(c.situacao) }}</td>
+      </tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{% if termos %}
+<section class="painel">
+  <div class="painel__cabecalho"><h2>Termos</h2></div>
+  <ul class="pendencias">{% for t in termos %}
+    <li class="pendencia">{{ m.icone("documento", "icone--p") }}<span class="pendencia__texto"><a class="forte" href="{{ url_for('termos.detalhe', termo_id=t.id) }}">{{ t.codigo }}</a><small>{{ t.nome }}</small></span></li>
+  {% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if aparelhos.itens %}
+<section class="painel">
+  <div class="painel__cabecalho"><h2>Aparelhos <span class="discreto num">{{ aparelhos.total|milhar }}</span></h2>
+    {% if aparelhos.total > aparelhos.itens|length %}<a href="{{ url_for('aparelhos.lista', q=termo) }}">Ver todos</a>{% endif %}</div>
+  <table class="tabela tabela--cartoes">
+    <thead><tr><th>Aparelho</th><th>Responsável</th><th>Status</th></tr></thead>
+    <tbody>{% for a in aparelhos %}
+      <tr>
+        <td><a class="titulo-celula" href="{{ url_for('aparelhos.detalhe', aparelho_id=a.id) }}">{{ a.marca }} {{ a.modelo }}</a><span class="sub">{{ a.imei }}{% if a.linha %} · {{ a.linha|telefone }}{% endif %}</span></td>
+        <td data-celular="linha">{% if a.colaborador_id %}<a href="{{ url_for('colaboradores.detalhe', colaborador_id=a.colaborador_id) }}">{{ a.colaborador_nome }}</a>{% else %}<span class="discreto">—</span>{% endif %}</td>
+        <td data-celular="direita">{{ m.selo_aparelho(a.status) }}</td>
+      </tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{% if colaboradores.itens %}
+<section class="painel">
+  <div class="painel__cabecalho"><h2>Colaboradores <span class="discreto num">{{ colaboradores.total|milhar }}</span></h2>
+    {% if colaboradores.total > colaboradores.itens|length %}<a href="{{ url_for('colaboradores.lista', q=termo, situacao='todos') }}">Ver todos</a>{% endif %}</div>
+  <table class="tabela tabela--cartoes">
+    <thead><tr><th>Nome</th><th>Aparelhos</th><th>Unidade</th></tr></thead>
+    <tbody>{% for c in colaboradores %}
+      <tr>
+        <td><a class="titulo-celula" href="{{ url_for('colaboradores.detalhe', colaborador_id=c.id) }}">{{ c.nome }}</a><span class="sub">{{ c.departamento }}{% if c.situacao != "ativo" %} · desligado{% endif %}</span></td>
+        <td data-celular="linha">{{ c.aparelhos_descricao or "—" }}</td>
+        <td data-celular="oculto">{{ c.unidade_nome }}</td>
+      </tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

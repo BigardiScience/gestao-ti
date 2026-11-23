@@ -1,0 +1,18 @@
+{% import "_macros.html" as m %}
+{{ m.cabecalho("Configurações") }}
+{% set ep = request.endpoint %}
+<nav class="abas" aria-label="Seções das configurações">
+  {% for endpoint, rotulo, extras in (
+      ("configuracoes.geral", "Geral", ()),
+      ("configuracoes.termo", "Modelo do termo", ()),
+      ("configuracoes.notificacoes", "Notificações", ()),
+      ("configuracoes.integracao", "Outlook", ()),
+      ("configuracoes.active_directory", "Active Directory", ("configuracoes.testar_ad",)),
+      ("configuracoes.chamados", "Chamados", ()),
+      ("configuracoes.usuarios", "Usuários", ("configuracoes.usuario_novo", "configuracoes.usuario_editar", "configuracoes.acessos")),
+      ("configuracoes.emails", "E-mails enviados", ("configuracoes.email_detalhe",)),
+      ("configuracoes.auditoria", "Auditoria", ()),
+      ("configuracoes.backup", "Backup", ())) %}
+  <a class="aba{% if ep == endpoint or ep in extras %} aba--ativa{% endif %}" href="{{ url_for(endpoint) }}" {% if ep == endpoint %}aria-current="page"{% endif %}>{{ rotulo }}</a>
+  {% endfor %}
+</nav>

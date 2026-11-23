@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Chamados{% endblock %}
+{% set dias_marcados = (form.getlist("chamados_dias") if form.getlist is defined else (form.get("chamados_dias") or "").split(",")) %}
+{% block conteudo %}
+{% include "configuracoes/_abas.html" %}
+<div class="grade grade--lado">
+  <form class="painel" method="post" novalidate>
+    {{ m.csrf() }}
+    <div class="painel__corpo">
+      <div class="secao-form">
+        <h2>Horário de atendimento</h2>
+        <p class="secundario pequeno">Os prazos e os lembretes só correm dentro deste horário. Vale para todas as unidades.</p>
+        <div class="opcoes opcoes--linha" role="group" aria-label="Dias de atendimento">
+          {% for numero, nome in dias_semana.items() %}
+          <label class="marcacao"><input type="checkbox" name="chamados_dias" value="{{ numero }}"{% if numero|string in dias_marcados %} checked{% endif %}><span class="marcacao__texto">{{ nome }}</span></label>
+          {% endfor %}
+        </div>
+        {{ m.erro_campo(erros, "chamados_dias") }}
+        <div class="grade-form mt-16">
+          {{ m.campo("chamados_inicio", "Começa às", form, erros, tipo="time") }}
+          {{ m.campo("chamados_fim", "Termina às", form, erros, tipo="time") }}
+        </div>
+      </div>
+      <div class="secao-form">
+        <h2>Feriados</h2>
+        <p class="secundario pequeno">Os nacionais (inclusive Sexta-feira Santa) entram sozinhos.</p>
+        <div class="opcoes">
+          {{ m.marcacao("chamados_carnaval", "Carnaval (segunda e terça) não conta como dia útil", form) }}
+          {{ m.marcacao("chamados_corpus_christi", "Corpus Christi não conta como dia útil", form) }}
+        </div>
+        <div class="grade-form mt-16">
+          {{ m.campo_texto("chamados_feriados", "Outros feriados e pontes", form, erros, linhas=4,
+                           ajuda="Municipais e dias sem expediente, um por linha (DD/MM/AAAA).") }}
+        </div>
+      </div>
+      <div class="secao-form">
+        <h2>Prazos para resolver</h2>
+        <p class="secundario pequeno">Contam só o horário de atendimento. “Aguardando usuário” pausa o prazo.</p>
+        <div class="grade-form">
+          {% for chave, rotulo in PRIORIDADES.items() %}
+          <div class="campo{% if erros.get('chamados_prazo_' ~ chave) %} campo--erro{% endif %}">
+            <label for="c-prazo-{{ chave }}">Prioridade {{ rotulo }}</label>
+            <div class="prazo-config">
+              <input type="number" id="c-prazo-{{ chave }}" name="prazo_{{ chave }}_n" value="{{ prazos[chave][0] }}" min="1" max="999">
+              <select name="prazo_{{ chave }}_u" aria-label="Unidade do prazo {{ rotulo }}">
+                <option value="h"{% if prazos[chave][1] != "d" %} selected{% endif %}>horas úteis</option>
+                <option value="d"{% if prazos[chave][1] == "d" %} selected{% endif %}>dias úteis</option>
+              </select>
+            </div>
+            {{ m.erro_campo(erros, "chamados_prazo_" ~ chave) }}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="secao-form">
+        <h2>Encerramento automático</h2>
+        <div class="grade-form">
+          {{ m.campo("chamados_fechar_resolvido_dias", "Resolvidos fecham depois de (dias úteis)", form, erros, tipo="number", attrs='min="1" max="30"',
+                     ajuda="Nesse período o colaborador pode reabrir.") }}
+          {{ m.campo("chamados_fechar_aguardando_dias", "Sem resposta do usuário fecham depois de (dias úteis)", form, erros, tipo="number", attrs='min="1" max="60"',
+                     ajuda="O colaborador recebe um e-mail avisando.") }}
+        </div>
+      </div>
+      <div class="secao-form">
+        <h2>Avisos e contatos</h2>
+        {{ m.marcacao("chamados_resumo_ativo", "Enviar resumo diário para a TI (abertos, atrasados e sem responsável)", form) }}
+        <div class="grade-form mt-16">
+          {{ m.campo("chamados_resumo_hora", "Horário do resumo", form, erros, tipo="time") }}
+          {{ m.campo("chamados_encarregado_email", "E-mail do encarregado (DPO)", form, erros, tipo="email",
+                     ajuda="Recebe o aviso de incidente com dado pessoal e o registro completo, quando a TI enviar.") }}
+          {{ m.campo("chamados_contato_ti", "Contato da TI na tela de entrar", form, erros, largo=True,
+                     attrs='placeholder="Ex.: Ligue para a TI no ramal 2000."', ajuda="Aparece em “Esqueceu a senha?”.") }}
+        </div>
+      </div>
+      <div class="rodape-form"><button class="botao botao--primario" type="submit">Salvar</button></div>
+    </div>
+  </form>
+
+  <aside class="pilha">
+    <section class="painel" aria-labelledby="t-canais">
+      <div class="painel__cabecalho"><h2 id="t-canais">Canais do Teams</h2></div>
+      <div class="painel__corpo">
+        {% if falhas_teams %}<div class="aviso aviso--erro">{{ m.icone("alerta") }}<div class="aviso__texto">{{ falhas_teams }} aviso(s) não chegaram ao Teams nos últimos 3 dias. Confira os links das unidades.</div></div>{% endif %}
+        <ul class="pendencias">
+          {% for c in canais %}
+          <li class="pendencia"><span class="pendencia__texto">{{ c.nome }}
+            <small>{% if c.tem_link %}Canal próprio{% else %}Sem canal próprio{% endif %}{% if c.tambem %} · também avisa {{ c.tambem|join(", ") }}{% endif %}{% if not c.chamados_ativo %} · pedidos desligados{% endif %}</small></span>
+            <a class="botao botao--p" href="{{ url_for('unidades.editar', unidade_id=c.id) }}">Editar</a></li>
+          {% endfor %}
+        </ul>
+      </div>
+    </section>
+    <section class="painel" aria-labelledby="t-feriados">
+      <div class="painel__cabecalho"><h2 id="t-feriados">Próximos feriados</h2></div>
+      <div class="painel__corpo">
+        <ul class="feriados">
+          {% for dia, nome in feriados %}<li><span>{{ nome }}</span><span class="num">{{ dia|data }}</span></li>{% else %}<li>Nenhum até o fim do ano.</li>{% endfor %}
+        </ul>
+      </div>
+    </section>
+  </aside>
+</div>
+{% endblock %}

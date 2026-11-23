@@ -1,0 +1,17 @@
+{% set status_atual = filtros.get("status", "") %}
+<nav class="abas" aria-label="Situação dos termos">
+  {% for chave, rotulo, quantidade in (
+      ("", "Todos", none),
+      ("pendente", "Pendentes", contagens.pendente),
+      ("gerado", "Aguardando envio", contagens.gerado),
+      ("enviado", "Aguardando assinatura", contagens.enviado),
+      ("expirado", "Link expirado", contagens.expirado),
+      ("assinado", "Assinados", contagens.assinado),
+      ("cancelado", "Cancelados", contagens.cancelado),
+      ("sem_termo", "Sem termo", total_sem_termo)) %}
+    {% if chave in ("", "pendente", "assinado") or quantidade %}
+    <a class="aba{% if status_atual == chave %} aba--ativa{% endif %}" href="{{ url_for('termos.lista', status=chave or none) }}" {% if status_atual == chave %}aria-current="page"{% endif %}>
+      {{ rotulo }}{% if quantidade is not none %}<small>{{ quantidade|milhar }}</small>{% endif %}</a>
+    {% endif %}
+  {% endfor %}
+</nav>

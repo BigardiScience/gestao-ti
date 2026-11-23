@@ -1,0 +1,17 @@
+{% extends "base_publica.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block corpo %}
+<main class="acesso" id="conteudo">
+  <div class="acesso__caixa">
+    <div class="acesso__painel">
+      <p class="discreto">Erro {{ codigo }}</p>
+      <h1>{{ titulo }}</h1>
+      <p>{{ texto }}</p>
+      <div class="botoes">
+        <a class="botao botao--primario" href="{{ pagina_inicial(usuario) }}">Ir para o início</a>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}

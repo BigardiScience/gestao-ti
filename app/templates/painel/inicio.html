@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Painel{% endblock %}
+{% set uq = {"unidade": unidade_id} if unidade_id else {} %}
+{% set ordem = ["em_uso", "disponivel", "manutencao", "devolvido"] %}
+{% set rotulos = {"em_uso": "Em uso", "disponivel": "Disponíveis", "manutencao": "Em manutenção", "devolvido": "Devolvidos"} %}
+{% set icones_mov = {"entrega": "entregar", "transferencia": "movimento", "substituicao": "atualizar", "devolucao": "devolver",
+                     "termo_assinado": "caneta", "baixa": "lixeira", "status": "ferramenta", "cadastro": "mais"} %}
+
+{# Lista de primeiros passos (aparece enquanto o sistema ainda não tem nenhuma entrega) #}
+{% macro passos_iniciais(passos, escuro=False) %}
+{% set itens = [
+    ("unidades", "Unidades", "Matriz, fábricas e centros de distribuição.", [("Cadastrar unidade", url_for('unidades.nova'))]),
+    ("aparelhos", "Aparelhos", "Importe a planilha atual ou cadastre um a um.", [("Importar planilha", url_for('aparelhos.importar')), ("Cadastrar", url_for('aparelhos.novo'))]),
+    ("colaboradores", "Colaboradores", "Quem vai receber os celulares.", [("Importar planilha", url_for('colaboradores.importar')), ("Cadastrar", url_for('colaboradores.novo'))]),
+    ("entregas", "Primeira entrega", "Entregue um aparelho e envie o termo para assinatura.", [("Entregar aparelho", url_for('vinculos.entregar'))]),
+    ("outlook", "E-mail", "Conecte o Outlook para os termos saírem de verdade.", [("Configurar", url_for('configuracoes.integracao'))]),
+] %}
+<ol class="passos-iniciais{% if escuro %} passos-iniciais--escuro{% endif %}">
+  {% for chave, titulo, texto, acoes in itens %}
+  {% set feito = passos[chave] %}
+  <li class="passo-inicial{% if feito %} passo-inicial--feito{% endif %}">
+    <span class="passo-inicial__marca" aria-hidden="true">{% if feito %}{{ m.icone("ok", "icone--p") }}{% else %}{{ loop.index }}{% endif %}</span>
+    <div class="passo-inicial__texto">
+      <strong>{{ titulo }}{% if feito %}<span class="visualmente-oculto"> (concluído)</span>{% endif %}</strong>
+      <span>{% if feito and chave not in ("outlook", "entregas") %}{{ plural(passos[chave], {"unidades": "unidade cadastrada", "aparelhos": "aparelho cadastrado", "colaboradores": "colaborador ativo"}[chave], {"unidades": "unidades cadastradas", "aparelhos": "aparelhos cadastrados", "colaboradores": "colaboradores ativos"}[chave]) }}{% elif feito %}Pronto.{% else %}{{ texto }}{% endif %}</span>
+    </div>
+    {% if not feito %}
+    <div class="passo-inicial__acoes">
+      {% for rotulo, url in acoes %}<a class="botao botao--p{% if loop.first %} botao--claro{% else %} botao--contorno{% endif %}" href="{{ url }}">{{ rotulo }}</a>{% endfor %}
+    </div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{% endmacro %}
+
+{% block conteudo %}
+{% call m.cabecalho("Painel") %}
+  {% if unidades|length > 1 %}
+  <form method="get">
+    <label class="visualmente-oculto" for="filtro-unidade">Unidade</label>
+    <select id="filtro-unidade" class="entrada" name="unidade" data-filtro-automatico>
+      <option value="">Todas as unidades</option>
+      {% for u in unidades %}<option value="{{ u.id }}" {% if u.id == unidade_id %}selected{% endif %}>{{ u.nome }}</option>{% endfor %}
+    </select>
+    <noscript><button class="botao" type="submit">Filtrar</button></noscript>
+  </form>
+  {% endif %}
+  {% if eh_admin() and resumo.total %}<a class="botao botao--primario" href="{{ url_for('vinculos.entregar') }}">{{ m.icone("entregar") }}Entregar aparelho</a>{% endif %}
+{% endcall %}
+
+{% if not resumo.total %}
+{# ------------------------------------------------------------------ frota vazia: guia de implantação #}
+<section class="vitrine vitrine--inicio" aria-labelledby="t-inicio">
+  <div class="vitrine__resumo">
+    <span class="vitrine__etiqueta">{{ unidade_atual.nome if unidade_atual else "Primeiros passos" }}</span>
+    <h2 class="vitrine__titulo" id="t-inicio">Vamos montar a sua frota</h2>
+    <p class="vitrine__texto">{% if eh_admin() %}Siga os passos ao lado. O painel se preenche sozinho conforme os dados entram.{% else %}Ainda não há aparelhos cadastrados{% if unidade_atual %} nesta unidade{% endif %}.{% endif %}</p>
+    {% if eh_admin() %}<p class="vitrine__progresso"><strong>{{ passos.feitos }} de {{ passos.total }}</strong> concluídos</p>{% endif %}
+  </div>
+  {% if eh_admin() and not unidade_atual %}{{ passos_iniciais(passos, escuro=True) }}{% endif %}
+</section>
+{% else %}
+{# ------------------------------------------------------------------ vitrine: a frota em ícones #}
+<section class="vitrine" aria-labelledby="t-frota">
+  <div class="vitrine__resumo">
+    <span class="vitrine__etiqueta">{{ unidade_atual.nome if unidade_atual else "Todas as unidades" }}</span>
+    <p class="vitrine__numero" id="t-frota">{{ frota.ativos|milhar }}</p>
+    <p class="vitrine__rotulo">{{ "aparelho na frota" if frota.ativos == 1 else "aparelhos na frota" }}{% if resumo.por_status.baixado %}<span> e {{ plural(resumo.por_status.baixado, "baixado") }}</span>{% endif %}</p>
+    <ul class="legenda legenda--escura" aria-label="Aparelhos por status">
+      {% for s in ordem %}
+      <li><a class="legenda__item legenda__item--{{ s }}{% if not resumo.por_status[s] %} legenda__item--zero{% endif %}" href="{{ url_for('aparelhos.lista', status=s, **uq) }}"><i aria-hidden="true"></i><strong>{{ resumo.por_status[s]|milhar }}</strong> {{ rotulos[s] }}</a></li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="frota frota--{{ frota.tamanho }}">
+    {% if frota.grupos %}
+    <div class="frota__icones" role="img" aria-label="{% for g in frota.grupos %}{{ g.valor }} {{ rotulos[g.status]|lower }}{{ ', ' if not loop.last }}{% endfor %}">
+      {%- for g in frota.grupos %}{% if not loop.first %}<i class="frota__divisa"></i>{% endif %}{% for _ in range(g.icones) %}<i class="frota__icone frota__icone--{{ g.status }}"></i>{% endfor %}{% endfor -%}
+    </div>
+    <p class="frota__nota">{% if frota.escala > 1 %}Cada ícone representa {{ frota.escala }} aparelhos.{% else %}Cada ícone é um aparelho.{% endif %}</p>
+    {% else %}
+    <p class="frota__nota">Todos os aparelhos desta seleção estão baixados.</p>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+<div class="grade {{ 'grade--2 grade--igual' if resumo.total else '' }} mt-16">
+  {# ------------------------------------------------------------------ termos #}
+  {% if resumo.total %}
+  <section class="painel" aria-labelledby="t-termos">
+    <div class="painel__cabecalho"><h2 id="t-termos">Termos de responsabilidade</h2><a href="{{ url_for('termos.lista', **uq) }}">Ver termos</a></div>
+    <div class="painel__corpo termos-resumo">
+      {% set cob = resumo.cobertura %}
+      <svg class="anel" viewBox="0 0 88 88" role="img" aria-label="{% if cob is none %}Nenhum aparelho em uso{% else %}{{ cob }}% dos aparelhos em uso com termo assinado{% endif %}">
+        <circle class="anel__trilho" cx="44" cy="44" r="36"/>
+        {% if cob %}<circle class="anel__valor{% if cob < 100 %} anel__valor--parcial{% endif %}" cx="44" cy="44" r="36" pathLength="100" stroke-dasharray="{{ cob }} 100" transform="rotate(-90 44 44)"/>{% endif %}
+        <text class="anel__texto" x="44" y="50" text-anchor="middle">{{ "—" if cob is none else cob ~ "%" }}</text>
+      </svg>
+      <div class="termos-resumo__texto">
+        {% if cob is none %}
+        <p class="termos-resumo__destaque">Nenhum aparelho em uso.</p>
+        <p class="secundario">Os termos aparecem aqui depois das entregas.</p>
+        {% else %}
+        <p class="termos-resumo__destaque">{{ resumo.cobertura_assinados|milhar }} de {{ resumo.cobertura_total|milhar }}</p>
+        <p class="secundario">aparelhos em uso têm termo assinado.</p>
+        {% endif %}
+        <ul class="numeros">
+          {% for chave, rotulo, filtro, classe in (
+              ("aguardando", "Aguardando assinatura", "enviado", "aviso"),
+              ("nao_enviados", "Aguardando envio", "gerado", "neutro"),
+              ("expirados", "Links expirados", "expirado", "perigo"),
+              ("sem_termo", "Entregas sem termo", "sem_termo", "perigo")) %}
+          {% if resumo.termos[chave] %}
+          <li><a class="numeros__item numeros__item--{{ classe }}" href="{{ url_for('termos.lista', status=filtro, **uq) }}"><span>{{ rotulo }}</span><strong>{{ resumo.termos[chave]|milhar }}</strong></a></li>
+          {% endif %}
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {# ------------------------------------------------------------------ pendências #}
+  <section class="painel" aria-labelledby="t-pendencias">
+    <div class="painel__cabecalho">
+      <h2 id="t-pendencias">Precisa de atenção</h2>
+      {% if alertas %}<a href="{{ url_for('painel.lista_alertas') }}">Ver todas</a>{% endif %}
+    </div>
+    {% if alertas %}
+    <ul class="pendencias">
+      {% for a in alertas %}
+      <li><a class="pendencia pendencia--{{ a.nivel }}" href="{{ a.url }}" title="{{ a.acao }}">
+        <span class="pendencia__selo">{{ m.icone("alerta" if a.nivel != "info" else "info", "icone--p") }}</span>
+        <span class="pendencia__texto">{{ a.titulo }}</span>
+        {{ m.icone("seta-direita", "icone--p") }}
+      </a></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="tudo-em-dia">{{ m.icone("ok-circulo") }}<div><strong>Tudo em dia</strong><span>Nenhuma pendência no momento.</span></div></div>
+    {% endif %}
+  </section>
+</div>
+
+{% if resumo.total and eh_admin() and not passos.concluido and not unidade_atual %}
+<section class="painel mt-16" aria-labelledby="t-passos">
+  <div class="painel__cabecalho"><h2 id="t-passos">Primeiros passos</h2><span class="pequeno discreto">{{ passos.feitos }} de {{ passos.total }} concluídos</span></div>
+  <div class="painel__corpo">{{ passos_iniciais(passos) }}</div>
+</section>
+{% endif %}
+
+<div class="grade {{ 'grade--lado' if por_unidade|length > 1 else '' }} mt-16">
+  {# ------------------------------------------------------------------ últimas movimentações #}
+  <section class="painel" aria-labelledby="t-mov">
+    <div class="painel__cabecalho">
+      <h2 id="t-mov">Últimas movimentações</h2>
+      <a href="{{ url_for('movimentacoes.lista', **uq) }}">Ver todas</a>
+    </div>
+    {% if ultimas %}
+    <ul class="atividades">
+      {% for mov in ultimas %}
+      <li class="atividade">
+        <span class="atividade__icone atividade__icone--{{ m.grupo_movimento(mov.tipo) }}" aria-hidden="true">{{ m.icone(icones_mov.get(mov.tipo, "movimento"), "icone--p") }}</span>
+        <div class="atividade__texto">
+          <span class="visualmente-oculto">{{ TIPOS_MOVIMENTACAO.get(mov.tipo, mov.tipo) }}: </span>{{ mov.descricao }}
+          {% if mov.marca %}<a class="atividade__link" href="{{ url_for('aparelhos.detalhe', aparelho_id=mov.aparelho_id) }}">{{ mov.marca }} {{ mov.modelo }}</a>{% endif %}
+        </div>
+        <time class="atividade__quando" datetime="{{ mov.ocorrido_em }}" title="{{ mov.ocorrido_em|datahora }}{% if mov.usuario_nome %} por {{ mov.usuario_nome }}{% endif %}">{{ mov.ocorrido_em|quando }}</time>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="painel__corpo"><p class="discreto">Nenhuma movimentação ainda. Entregas, devoluções e trocas aparecem aqui.</p></div>
+    {% endif %}
+  </section>
+
+  {# ------------------------------------------------------------------ por unidade #}
+  {% if por_unidade|length > 1 %}
+  <section class="painel" aria-labelledby="t-unidades">
+    <div class="painel__cabecalho"><h2 id="t-unidades">Por unidade</h2></div>
+    <div class="painel__corpo">
+      <ul class="legenda legenda--clara" aria-hidden="true">
+        {% for s in ordem %}<li><span class="legenda__item legenda__item--{{ s }}"><i></i>{{ rotulos[s] }}</span></li>{% endfor %}
+      </ul>
+      <ul class="unidades-barras">
+        {% for u in por_unidade %}
+        <li>
+          <div class="unidades-barras__topo"><a href="{{ url_for('painel.inicio', unidade=u.id) }}">{{ u.nome }}</a><span class="num">{{ u.ativos|milhar }}</span></div>
+          <svg class="unidades-barras__grafico" viewBox="0 0 100 8" preserveAspectRatio="none" role="img"
+               aria-label="{{ u.nome }}: {% for s in ordem %}{{ u[s] }} {{ rotulos[s]|lower }}{{ ', ' if not loop.last }}{% endfor %}">
+            <rect class="trilho" x="0" y="0" width="100" height="8"/>
+            {% set x = namespace(v=0) %}
+            {% for s in ordem %}{% if u[s] %}{% set largura = 100 * u[s] / maior_unidade %}
+            <rect class="segmento segmento--{{ s }}" x="{{ '%.2f'|format(x.v) }}" y="0" width="{{ '%.2f'|format(largura) }}" height="8" vector-effect="non-scaling-stroke"><title>{{ rotulos[s] }}: {{ u[s] }}</title></rect>
+            {% set x.v = x.v + largura %}{% endif %}{% endfor %}
+          </svg>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

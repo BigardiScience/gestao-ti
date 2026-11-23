@@ -1,0 +1,7 @@
+{% extends "emails/_base.html" %}
+{% set empresa = nome_empresa() %}
+{% block corpo %}
+<p style="margin:0 0 14px;font-size:20px;font-weight:700;">A integração com o Outlook está funcionando</p>
+<p style="margin:0 0 14px;">Este e-mail de teste saiu da plataforma de gestão de celulares pelo Microsoft Graph, usando a caixa <strong>{{ remetente }}</strong>.</p>
+<p style="margin:0;font-size:13px;color:#475467;">Os termos de responsabilidade, lembretes e avisos vão sair por este mesmo caminho.</p>
+{% endblock %}

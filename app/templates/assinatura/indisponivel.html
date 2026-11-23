@@ -1,0 +1,22 @@
+{% extends "base_publica.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Link indisponível{% endblock %}
+{% block conteudo %}
+<div class="acesso__painel acesso__caixa centro-bloco">
+  {% if situacao == "assinado" %}
+    <h1>Este termo já foi assinado</h1>
+    <p>O termo {{ termo.codigo }} foi assinado em {{ termo.assinado_em|datahora }}. A cópia em PDF está no seu e-mail e no portal.</p>
+    <div class="botoes"><a class="botao botao--primario" href="{{ url_for('portal.entrar') }}">Acessar o portal</a></div>
+  {% elif situacao == "expirado" %}
+    <h1>O link de assinatura expirou</h1>
+    <p>Peça ao TI para reenviar o termo{% if contato %}: <a href="mailto:{{ contato }}">{{ contato }}</a>{% endif %}.</p>
+  {% elif situacao == "cancelado" %}
+    <h1>Este termo foi cancelado</h1>
+    <p>Se você ainda está com o aparelho, um novo termo deve chegar no seu e-mail.{% if contato %} Dúvidas: <a href="mailto:{{ contato }}">{{ contato }}</a>.{% endif %}</p>
+  {% else %}
+    <h1>Link inválido</h1>
+    <p>Use o último e-mail recebido ou acesse o portal do colaborador.</p>
+    <div class="botoes"><a class="botao botao--primario" href="{{ url_for('portal.entrar') }}">Acessar o portal</a></div>
+  {% endif %}
+</div>
+{% endblock %}

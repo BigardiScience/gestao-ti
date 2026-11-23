@@ -1,0 +1,21 @@
+{% extends "base_publica.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Portal do colaborador{% endblock %}
+{% block conteudo %}
+<div class="acesso__caixa centro-bloco">
+  <div class="acesso__painel">
+    <h1>Portal do colaborador</h1>
+    <p>Veja o seu celular corporativo e assine ou baixe os seus termos.</p>
+    {% if erro %}<div class="aviso aviso--erro" role="alert">{{ m.icone("erro") }}<div class="aviso__texto">{{ erro }}</div></div>{% endif %}
+    <form method="post" novalidate>
+      {{ m.csrf() }}
+      <div class="campo">
+        <label for="email">E-mail corporativo</label>
+        <input id="email" type="email" name="email" autocomplete="email" required autofocus placeholder="nome@empresa.com.br">
+      </div>
+      <button class="botao botao--primario botao--bloco" type="submit">Receber código por e-mail</button>
+    </form>
+  </div>
+  <p class="acesso__extra">É do TI? <a href="{{ url_for('auth.entrar') }}">Entrar</a></p>
+</div>
+{% endblock %}

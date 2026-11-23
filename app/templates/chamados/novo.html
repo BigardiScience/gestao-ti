@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Abrir chamado por alguém{% endblock %}
+{% block conteudo %}
+{% call m.cabecalho("Abrir chamado por alguém", voltar=url_for("chamados.fila"), voltar_rotulo="Fila de chamados") %}{% endcall %}
+<form class="painel formulario" method="post" enctype="multipart/form-data" novalidate>
+  {{ m.csrf() }}
+  <div class="painel__corpo">
+    <div class="secao-form">
+      <h2>Quem pediu</h2>
+      <div class="grade-form">
+        {{ m.campo("login", "Usuário do Windows", form, erros, attrs='list="pessoas-conhecidas" autocomplete="off" autocapitalize="none" spellcheck="false"',
+                   ajuda="Ex.: maria.silva. Se a pessoa não tiver usuário, deixe em branco e informe o nome.") }}
+        <datalist id="pessoas-conhecidas">
+          {% for p in pessoas %}<option value="{{ p.login_ad }}">{{ p.nome }}{% if p.setor %} – {{ p.setor }}{% endif %}{% if p.unidade_nome %} ({{ p.unidade_nome }}){% endif %}</option>{% endfor %}
+        </datalist>
+        {{ m.campo("nome", "Nome", form, erros, ajuda="Obrigatório se a pessoa ainda não entrou no sistema.") }}
+        {{ m.campo("email", "E-mail", form, erros, tipo="email", ajuda="Para a pessoa receber as respostas. Quem já entrou no sistema tem o e-mail do AD.") }}
+        {{ m.campo_select("unidade_id", "Unidade", unidades|opcoes, form, erros, obrigatorio=True, vazio=None) }}
+        <div class="campo">
+          <label for="c-canal">Como pediu</label>
+          <select id="c-canal" name="canal">
+            {% for chave, texto in (("telefone", "Telefone"), ("whatsapp", "WhatsApp"), ("pessoalmente", "Pessoalmente"), ("email", "E-mail"), ("teams", "Teams")) %}
+            <option value="{{ chave }}"{% if form.get("canal") == chave %} selected{% endif %}>{{ texto }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="secao-form">
+      <h2>Pedido</h2>
+      <div class="grade-form">
+        {{ m.campo_select("categoria", "Categoria", OPCOES_CATEGORIA_CHAMADO, form, erros, obrigatorio=True) }}
+        {{ m.campo_select("prioridade", "Prioridade", PRIORIDADES_CHAMADO|itens_dict, form, erros, obrigatorio=True, vazio=None,
+                          ajuda="Segurança da informação entra sempre como Alta.") }}
+        {{ m.campo_texto("descricao", "O que a pessoa relatou", form, erros, obrigatorio=True, linhas=5,
+                         ajuda="A primeira frase vira o assunto do chamado. Não registre senhas.") }}
+        {{ m.seletor("computador_id", "Computador (se for o caso)", url_for("chamados.buscar_computadores"),
+                     {"id": computador.id, "titulo": computador.nome, "detalhe": computador.usuario_nome or ""} if computador else none,
+                     erros, "Buscar por máquina, usuário ou IP", obrigatorio=False) }}
+        <div class="campo campo--largo">
+          <label for="c-anexo">Foto ou PDF (opcional)</label>
+          <input id="c-anexo" type="file" name="anexo" accept="image/*,application/pdf">
+          {{ m.erro_campo(erros, "anexo") }}
+        </div>
+      </div>
+    </div>
+    <div class="mt-16">{{ m.marcacao("assumir", "Eu vou atender (já entra como Em atendimento, comigo como responsável)", form) }}</div>
+    <div class="rodape-form">
+      <a class="botao botao--fantasma" href="{{ url_for('chamados.fila') }}">Cancelar</a>
+      <button class="botao botao--primario" type="submit">Abrir chamado</button>
+    </div>
+  </div>
+</form>
+{% endblock %}

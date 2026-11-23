@@ -1,0 +1,116 @@
+{% import "_macros.html" as m %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="relogio" content="{{ estatico('js/relogio.js') }}">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block titulo %}{% endblock %} | Gestão de TI</title>
+  <link rel="icon" href="{{ estatico('img/marca.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ estatico('css/app.css') }}">
+  <script src="{{ estatico('js/app.js') }}" defer></script>
+  {% if eh_ti_chamados() %}
+  <meta name="chamados-contador" content="{{ url_for('chamados.contador') }}">
+  <meta name="chamados-fila" content="{{ url_for('chamados.fila') }}">
+  <script src="{{ estatico('js/chamados.js') }}" defer></script>
+  {% endif %}
+  {% block cabeca %}{% endblock %}
+</head>
+<body>
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+<div class="app">
+  <aside class="lateral" id="menu-lateral" aria-label="Menu principal">
+    <a class="marca" href="{{ url_for('painel.inicio') }}">
+      {{ m.marca_svg() }}
+      <span class="marca__texto">
+        <span class="marca__nome">Gestão de TI</span>
+        <span class="marca__empresa">{{ nome_empresa() }}</span>
+      </span>
+    </a>
+    {% set bp = request.blueprint %}
+    {% set pendentes = contagem_termos_pendentes() %}
+    <nav class="menu">
+      {{ m.item_menu("painel.inicio", "painel", "Painel", request.endpoint == "painel.inicio") }}
+      {% if eh_ti_chamados() %}
+      {% set novos = contagem_chamados() %}
+      <a class="menu__item{% if bp == 'chamados' %} menu__item--ativo{% endif %}" href="{{ url_for('chamados.fila') }}"{% if bp == 'chamados' %} aria-current="page"{% endif %}>
+        {{ m.icone("chamados") }}<span>Chamados</span>
+        <span class="menu__contador menu__contador--chamados" data-contador-chamados title="Chamados novos sem responsável e respostas de colaborador que você ainda não viu"{% if not novos %} hidden{% endif %}>{{ novos }}</span></a>
+      {% endif %}
+      {{ m.item_menu("computadores.lista", "computador", "Computadores", bp == "computadores") }}
+      <span class="menu__grupo">Celulares</span>
+      {{ m.item_menu("aparelhos.lista", "celular", "Aparelhos", bp in ("aparelhos", "vinculos")) }}
+      {{ m.item_menu("colaboradores.lista", "pessoas", "Colaboradores", bp == "colaboradores") }}
+      {{ m.item_menu("termos.lista", "documento", "Termos", bp == "termos", pendentes) }}
+      {{ m.item_menu("movimentacoes.lista", "movimento", "Movimentações", bp == "movimentacoes") }}
+      {{ m.item_menu("relatorios.inicio", "relatorio", "Relatórios", bp == "relatorios") }}
+      <span class="menu__grupo">Sistema</span>
+      {{ m.item_menu("unidades.lista", "predio", "Unidades", bp == "unidades") }}
+      {% if eh_admin() %}
+      {{ m.item_menu("configuracoes.geral", "ajustes", "Configurações", bp == "configuracoes") }}
+      {% endif %}
+    </nav>
+    <div class="lateral__rodape">
+      {% if usuario.origem == "local" %}
+      <a class="usuario-mini" href="{{ url_for('auth.trocar_senha') }}" title="Trocar minha senha">
+      {% else %}
+      <a class="usuario-mini" href="{{ url_for('pedidos.lista') }}" title="Meus pedidos para a TI">
+      {% endif %}
+        <span class="avatar" aria-hidden="true">{{ m.iniciais(usuario.nome) }}</span>
+        <span class="usuario-mini__dados">
+          <span class="usuario-mini__nome">{{ usuario.nome }}</span>
+          <span class="usuario-mini__perfil">{{ PERFIS[usuario.perfil] }}</span>
+        </span>
+      </a>
+      <form method="post" action="{{ url_for('auth.sair') }}">{{ m.csrf() }}
+        <button class="botao-icone" type="submit" title="Sair">{{ m.icone("sair") }}<span class="visualmente-oculto">Sair</span></button>
+      </form>
+    </div>
+  </aside>
+
+  <div class="principal">
+    <header class="topo">
+      <button class="botao-icone topo__menu" type="button" data-abrir-menu aria-controls="menu-lateral" aria-expanded="false">
+        {{ m.icone("menu") }}<span class="visualmente-oculto">Abrir menu</span>
+      </button>
+      <form class="busca-geral" action="{{ url_for('painel.busca') }}" method="get" role="search">
+        {{ m.icone("busca", "icone--p") }}
+        <label class="visualmente-oculto" for="busca-geral">Buscar</label>
+        <input id="busca-geral" type="search" name="q" value="{{ request.args.get('q', '') if request.endpoint == 'painel.busca' else '' }}"
+               placeholder="Buscar máquina, IP, usuário, IMEI ou termo" autocomplete="off">
+      </form>
+      {% set n_alertas = contagem_alertas() %}
+      <a class="botao-icone topo__alertas" href="{{ url_for('painel.lista_alertas') }}" title="Pendências">
+        {{ m.icone("sino") }}<span class="visualmente-oculto">Pendências</span>
+        {% if n_alertas %}<span class="bolinha">{{ n_alertas }}</span>{% endif %}
+      </a>
+    </header>
+
+    <main class="conteudo" id="conteudo">
+      {{ m.avisos() }}
+      {% block conteudo %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<dialog class="dialogo" id="dialogo-confirmar" aria-labelledby="dialogo-titulo">
+  <form method="dialog">
+    <div class="dialogo__corpo">
+      <h2 id="dialogo-titulo" data-dialogo-titulo>Confirmar ação</h2>
+      <p data-dialogo-texto></p>
+      <div class="campo" data-dialogo-campo hidden>
+        <label for="dialogo-motivo">Motivo</label>
+        <textarea id="dialogo-motivo" rows="3"></textarea>
+      </div>
+    </div>
+    <div class="dialogo__rodape">
+      <button class="botao" type="button" data-dialogo-cancelar>Voltar</button>
+      <button class="botao botao--primario" type="submit" data-dialogo-ok>Confirmar</button>
+    </div>
+  </form>
+</dialog>
+{% block scripts %}{% endblock %}
+</body>
+</html>

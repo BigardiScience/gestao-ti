@@ -1,0 +1,31 @@
+{% extends "base_publica.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Instalação{% endblock %}
+{% block corpo %}
+<main class="acesso acesso--largo" id="conteudo">
+  <div class="acesso__caixa">
+    <div class="acesso__marca">
+      {{ m.marca_svg("") }}
+      <div><div class="marca__nome">Gestão de TI</div><div class="marca__empresa">Primeiro acesso</div></div>
+    </div>
+    <div class="acesso__painel">
+      <h1>Configurar a plataforma</h1>
+      <p>Crie o primeiro administrador. O código aparece no terminal e em <code>instance/codigo-instalacao.txt</code>.</p>
+      <form method="post" novalidate>
+        {{ m.csrf() }}
+        <div class="grade-form">
+          {{ m.campo("codigo", "Código de instalação", form, erros, obrigatorio=True, largo=True, attrs='autocomplete="off" autofocus placeholder="XXXX-XXXX-XXXX"') }}
+          {{ m.campo("empresa_nome", "Nome da empresa", form, erros, obrigatorio=True, largo=True) }}
+          {{ m.campo("url_base", "Endereço do sistema", form, erros, tipo="url", obrigatorio=True, largo=True,
+                     ajuda="O endereço que os colaboradores abrem pelo link do e-mail.") }}
+          {{ m.campo("nome", "Seu nome", form, erros, obrigatorio=True, attrs='autocomplete="name"') }}
+          {{ m.campo("email", "Seu e-mail", form, erros, tipo="email", obrigatorio=True, attrs='autocomplete="email"') }}
+          {{ m.campo("senha", "Senha", form, erros, tipo="password", obrigatorio=True, ajuda="Pelo menos 8 caracteres, com letras e números.", attrs='autocomplete="new-password"') }}
+          {{ m.campo("confirmar", "Confirme a senha", form, erros, tipo="password", obrigatorio=True, attrs='autocomplete="new-password"') }}
+        </div>
+        <div class="rodape-form"><button class="botao botao--primario" type="submit">Concluir instalação</button></div>
+      </form>
+    </div>
+  </div>
+</main>
+{% endblock %}

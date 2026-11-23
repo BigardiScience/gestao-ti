@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% import "chamados/_macros.html" as ch %}
+{% import "chamados/_mensagem.html" as msgs with context %}
+{% block titulo %}Chamado {{ chamado.id|numero_chamado }}{% endblock %}
+{% set seguranca = chamado.categoria == "seguranca" %}
+{% set aberto = chamado.situacao in ("novo", "atendimento", "aguardando") %}
+{% set editavel = pode_atender and chamado.situacao != "fechado" %}
+{% set primeiro_nome = (chamado.solicitante_nome or "").split(" ")[0] %}
+{% block conteudo %}
+<a class="cabecalho__voltar ch-voltar" href="{{ url_for('chamados.fila') }}">{{ m.icone("voltar", "icone--p") }}Chamados</a>
+
+<header class="ch-topo">
+  <div class="ch-topo__texto">
+    <p class="ch-topo__linha"><span class="ch-numero">#{{ chamado.id|numero_chamado }}</span>{{ ch.situacao(chamado.situacao) }}{{ ch.prioridade(chamado.prioridade) }}
+      {% if seguranca %}<span class="ch-restrito">{{ m.icone("cadeado", "icone--p") }}Segurança da informação · só a TI da unidade vê</span>{% endif %}</p>
+    <div class="ch-titulo">
+      <h1>{{ chamado.assunto }}</h1>
+      {% if editavel %}
+      <details class="ch-assunto">
+        <summary class="botao botao--fantasma botao--p ch-assunto__abrir" title="Editar o assunto">{{ m.icone("editar", "icone--p") }}<span class="visualmente-oculto">Editar o assunto</span></summary>
+        <form class="ch-assunto__form" method="post" action="{{ url_for('chamados.alterar', chamado_id=chamado.id) }}">
+          {{ m.csrf() }}
+          <label class="visualmente-oculto" for="c-assunto">Assunto</label>
+          <input id="c-assunto" name="assunto" value="{{ chamado.assunto }}" maxlength="140" required>
+          <button class="botao botao--primario botao--p" type="submit">Salvar</button>
+        </form>
+      </details>
+      {% endif %}
+    </div>
+  </div>
+  <div class="ch-topo__acoes">
+    {% if pode_atender %}
+      {% if aberto %}
+        {% if not chamado.responsavel_id %}
+        <form method="post" action="{{ url_for('chamados.assumir', chamado_id=chamado.id) }}">{{ m.csrf() }}
+          <button class="botao" type="submit">{{ m.icone("pessoa") }}Assumir</button></form>
+        {% endif %}
+        <a class="botao" href="{{ url_for('chamados.transferir', chamado_id=chamado.id) }}">Transferir</a>
+        <form method="post" action="{{ url_for('chamados.resolver', chamado_id=chamado.id) }}"
+              data-confirmar="{{ chamado.solicitante_nome }} recebe um aviso por e-mail e pode reabrir se o problema continuar." data-confirmar-titulo="Marcar como resolvido?" data-confirmar-botao="Marcar como resolvido">
+          {{ m.csrf() }}<button class="botao botao--resolver" type="submit">{{ m.icone("ok") }}Marcar como resolvido</button></form>
+      {% elif chamado.situacao == "resolvido" %}
+        <form method="post" action="{{ url_for('chamados.reabrir', chamado_id=chamado.id) }}">{{ m.csrf() }}
+          <button class="botao" type="submit">{{ m.icone("atualizar") }}Reabrir</button></form>
+      {% endif %}
+    {% else %}
+      <span class="ch-leitura">{{ m.icone("olho", "icone--p") }}Só leitura: chamado de {{ chamado.unidade_nome }}. Você pode escrever nota interna.</span>
+    {% endif %}
+  </div>
+</header>
+
+<div class="aviso aviso--info ch-novidade" data-situacao-mudou hidden role="status">
+  {{ m.icone("atualizar") }}<div class="aviso__texto">A situação do chamado mudou. <a href="{{ url_for('chamados.detalhe', chamado_id=chamado.id) }}?atualizado=1">Atualizar a página</a></div>
+</div>
+<div class="aviso aviso--info ch-novidade" data-resposta-nova data-chamado="{{ chamado.id }}" hidden role="status">
+  {{ m.icone("balao") }}<div class="aviso__texto">{{ chamado.solicitante_nome }} respondeu agora. <a href="{{ url_for('chamados.detalhe', chamado_id=chamado.id) }}#conversa">Atualizar a conversa</a></div>
+</div>
+
+<div class="ch-grade">
+  <div class="ch-principal">
+    {# Mensagens do colaborador que a TI ainda não tinha visto (depois da última resposta da TI) ganham "Nova" #}
+    {% set ns = namespace(ultima_ti=0) %}
+    {% for msg in mensagens %}{% if msg.tipo == "resposta" %}{% set ns.ultima_ti = loop.index0 %}{% endif %}{% endfor %}
+    <ol class="conversa" id="conversa" aria-label="Conversa" aria-live="polite" data-conversa-ao-vivo
+        data-url="{{ url_for('chamados.novidades', chamado_id=chamado.id) }}" data-chamado="{{ chamado.id }}"
+        data-ultima="{{ mensagens[-1].id if mensagens else 0 }}" data-situacao="{{ chamado.situacao }}">
+      {% for msg in mensagens %}
+      {% set nova = resposta_nova and msg.tipo == "mensagem" and not loop.first and loop.index0 > ns.ultima_ti %}
+      {{ msgs.item(msg, chamado, equipamento, loop.first, nova) }}
+      {% endfor %}
+    </ol>
+
+    {% if chamado.situacao != "fechado" %}
+    <form class="resposta" id="responder" method="post" action="{{ url_for('chamados.mensagem', chamado_id=chamado.id) }}" enctype="multipart/form-data" data-resposta>
+      {{ m.csrf() }}
+      <div class="resposta__abas" role="radiogroup" aria-label="Tipo de mensagem">
+        {% if pode_atender %}<label class="resposta__aba"><input class="visualmente-oculto" type="radio" name="tipo" value="resposta" checked><span>Responder {{ "à" if primeiro_nome[-1:] == "a" else "a" }} {{ primeiro_nome }}</span></label>{% endif %}
+        <label class="resposta__aba"><input class="visualmente-oculto" type="radio" name="tipo" value="nota"{% if not pode_atender %} checked{% endif %}><span>{{ m.icone("cadeado", "icone--p") }}Nota interna</span></label>
+      </div>
+      <label class="visualmente-oculto" for="c-texto">Mensagem</label>
+      <textarea id="c-texto" name="texto" rows="3" maxlength="6000" required data-resposta-texto
+                placeholder="{{ 'Escreva a resposta. ' ~ primeiro_nome ~ ' recebe por e-mail.' if pode_atender else 'Nota interna: só a TI vê.' }}"
+                data-placeholder-resposta="Escreva a resposta. {{ primeiro_nome }} recebe por e-mail." data-placeholder-nota="Nota interna: só a TI vê."></textarea>
+      <div class="resposta__rodape">
+        <label class="resposta__anexo" title="Anexar foto ou PDF">{{ m.icone("clipe") }}<span class="visualmente-oculto">Anexar foto ou PDF</span>
+          <input class="visualmente-oculto" type="file" name="anexo" accept="image/*,application/pdf" data-anexo></label>
+        <span class="resposta__arquivo" data-anexo-nome></span>
+        {% if pode_atender and aberto %}
+        <span data-mostrar-quando="tipo=resposta">{{ m.marcacao("aguardar", "Mudar para “Aguardando usuário”", {"aguardar": "1" if chamado.situacao == "aguardando" else ""}) }}</span>
+        {% endif %}
+        <button class="botao botao--primario" type="submit">{{ m.icone("enviar") }}Enviar</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+
+  <aside class="ch-lateral" aria-label="Detalhes do chamado">
+    <section class="ch-bloco" aria-labelledby="t-atendimento">
+      <h2 id="t-atendimento">Atendimento</h2>
+      {% if editavel %}
+      <form class="ch-atendimento" method="post" action="{{ url_for('chamados.alterar', chamado_id=chamado.id) }}" data-atendimento
+            data-confirmar-resolver="{{ chamado.solicitante_nome }} recebe um aviso por e-mail e pode reabrir se o problema continuar.">
+        {{ m.csrf() }}
+        {% set resolvido = chamado.situacao == "resolvido" %}
+        <label class="ch-campo">Situação
+          <select name="situacao">
+            {% for s in situacoes %}<option value="{{ s }}"{% if s == chamado.situacao %} selected{% endif %}>{{ SITUACOES_CHAMADO[s] if not (resolvido and s == "atendimento") else "Reabrir (Em atendimento)" }}</option>{% endfor %}
+          </select></label>
+        <label class="ch-campo">Prioridade
+          <select name="prioridade"{% if seguranca or resolvido %} disabled{% endif %}{% if seguranca %} title="Segurança da informação é sempre Alta."{% endif %}>
+            {% for chave, nome in PRIORIDADES_CHAMADO.items() %}<option value="{{ chave }}"{% if chave == chamado.prioridade %} selected{% endif %}>{{ nome }}</option>{% endfor %}
+          </select></label>
+        <label class="ch-campo">Categoria
+          <select name="categoria"{% if resolvido %} disabled{% endif %}>
+            {% for chave, nome in OPCOES_CATEGORIA_CHAMADO %}<option value="{{ chave }}"{% if chave == chamado.categoria %} selected{% endif %}>{{ nome }}</option>{% endfor %}
+          </select></label>
+        <label class="ch-campo">Responsável
+          <select name="responsavel_id"{% if resolvido %} disabled{% endif %}>
+            <option value="">Sem responsável</option>
+            {% for t in tecnicos %}<option value="{{ t.id }}"{% if t.id == chamado.responsavel_id %} selected{% endif %}>{{ t.nome }}</option>{% endfor %}
+          </select></label>
+        <div class="ch-atendimento__salvar" data-salvar-atendimento>
+          <button class="botao botao--primario botao--p" type="submit">Salvar alterações</button>
+        </div>
+      </form>
+      {% else %}
+      <dl class="ch-linhas">
+        <div><dt>Situação</dt><dd>{{ ch.situacao(chamado.situacao) }}</dd></div>
+        <div><dt>Prioridade</dt><dd>{{ ch.prioridade(chamado.prioridade) }}</dd></div>
+        <div><dt>Categoria</dt><dd>{{ CATEGORIAS_CHAMADO[chamado.categoria][0] }}</dd></div>
+        <div><dt>Responsável</dt><dd>{{ chamado.responsavel_nome or "Sem responsável" }}</dd></div>
+      </dl>
+      {% endif %}
+      <div class="ch-prazo"><span>Prazo</span>{{ ch.prazo_completo(prazo) }}</div>
+    </section>
+
+    <section class="ch-bloco" aria-labelledby="t-solicitante">
+      <h2 id="t-solicitante">Solicitante</h2>
+      <dl class="ch-linhas">
+        <div><dt>Nome</dt><dd>{{ chamado.solicitante_nome }}</dd></div>
+        <div><dt>Login</dt><dd>{{ chamado.solicitante_login or "—" }}</dd></div>
+        <div><dt>Setor</dt><dd>{{ " · ".join([chamado.solicitante_setor or "", chamado.solicitante_unidade_nome or ""]|select|list) or "—" }}</dd></div>
+        <div><dt>E-mail</dt><dd class="ch-linhas__corta">{% if chamado.solicitante_email %}<a href="mailto:{{ chamado.solicitante_email }}" title="{{ chamado.solicitante_email }}">{{ chamado.solicitante_email }}</a>{% else %}<span class="discreto">Sem e-mail: não recebe avisos</span>{% endif %}</dd></div>
+        <div><dt>Pedidos nos últimos 90 dias</dt><dd><a href="{{ url_for('chamados.fila', solicitante=chamado.solicitante_id, situacao='todos', unidade='todas') }}">{{ pedidos_90 }}</a></dd></div>
+      </dl>
+    </section>
+
+    <section class="ch-bloco" aria-labelledby="t-equipamento">
+      <h2 id="t-equipamento">Equipamento</h2>
+      {% set pc = equipamento.computador %}
+      {% if pc %}
+      <dl class="ch-linhas">
+        <div><dt>Máquina</dt><dd><a class="forte" href="{{ url_for('computadores.detalhe', computador_id=pc.id) }}">{{ pc.nome }}</a></dd></div>
+        {% if pc.processador or pc.memoria_gb %}<div><dt>Configuração</dt><dd>{{ pc.processador|processador_curto if pc.processador }}{% if pc.memoria_gb %}{{ " · " if pc.processador }}{{ pc.memoria_gb }} GB{% endif %}</dd></div>{% endif %}
+        {% if pc.sistema %}<div><dt>Sistema</dt><dd>{{ pc.sistema }}</dd></div>{% endif %}
+        {% if rede %}<div><dt>IP</dt><dd class="num">{{ pc.ip or "—" }}{% if pc.ip_wifi %} · Wi-Fi {{ pc.ip_wifi }}{% endif %}</dd></div>{% endif %}
+        <div><dt>SEP</dt><dd>{% if pc.sep == "ok" %}<span class="pilula pilula--ok">OK</span>{% elif pc.sep == "pendente" %}<span class="pilula pilula--aviso">Pendente</span>{% elif pc.sep == "nao_instalado" %}<span class="pilula pilula--falha">Não instalado</span>{% else %}—{% endif %}</dd></div>
+        {% if pc.remoto_ferramenta or pc.remoto_id %}<div><dt>Acesso remoto</dt><dd>{{ pc.remoto_ferramenta or "" }}{% if pc.remoto_ferramenta and pc.remoto_id %} · {% endif %}<span class="num">{{ pc.remoto_id or "" }}</span></dd></div>{% endif %}
+        <div><dt>Chamados desta máquina</dt><dd>{% set anteriores = pc.chamados - 1 %}{{ "nenhum outro" if anteriores <= 0 else (anteriores ~ (" anterior" if anteriores == 1 else " anteriores")) }}</dd></div>
+      </dl>
+      {% elif equipamento.aparelho %}
+      {% set ap = equipamento.aparelho %}
+      <dl class="ch-linhas">
+        <div><dt>Celular</dt><dd><a class="forte" href="{{ url_for('aparelhos.detalhe', aparelho_id=ap.id) }}">{{ ap.marca }} {{ ap.modelo }}</a></dd></div>
+        {% if ap.linha %}<div><dt>Linha</dt><dd>{{ ap.linha|telefone }}{% if ap.operadora %} · {{ ap.operadora }}{% endif %}</dd></div>{% endif %}
+        <div><dt>Chamados deste celular</dt><dd>{% set anteriores = ap.chamados - 1 %}{{ "nenhum outro" if anteriores <= 0 else (anteriores ~ (" anterior" if anteriores == 1 else " anteriores")) }}</dd></div>
+      </dl>
+      {% else %}
+      <p class="ch-sem-equipamento">{{ chamado.equipamento_texto or "Nenhum equipamento informado." }}</p>
+      {% endif %}
+    </section>
+    {% if chamado.origem_computador_id and chamado.origem_computador_id == chamado.computador_id %}
+    <p class="ch-origem">Aberto a partir do {{ pc.nome }}{% if rede and chamado.origem_ip %} ({{ chamado.origem_ip }}){% endif %}.</p>
+    {% elif equipamento.origem %}
+    <p class="ch-origem">Aberto a partir do <a href="{{ url_for('computadores.detalhe', computador_id=equipamento.origem.id) }}">{{ equipamento.origem.nome }}</a>{% if rede and chamado.origem_ip %} ({{ chamado.origem_ip }}){% endif %}.</p>
+    {% elif chamado.origem_ip and chamado.aberto_por_id == chamado.solicitante_id %}
+    <p class="ch-origem">Aberto de uma máquina fora do inventário{% if rede %} ({{ chamado.origem_ip }}){% endif %}: Wi-Fi de visitante, VPN ou computador não cadastrado.</p>
+    {% elif chamado.aberto_por_id and chamado.aberto_por_id != chamado.solicitante_id %}
+    <p class="ch-origem">Registrado pela TI ({{ chamado.aberto_por_nome }}).</p>
+    {% endif %}
+
+    {% if seguranca %}
+    <section class="ch-bloco ch-bloco--incidente" id="incidente" aria-labelledby="t-incidente">
+      <h2 id="t-incidente">{{ m.icone("escudo", "icone--p") }}Registro do incidente</h2>
+      <p class="pequeno">Se houver dado pessoal com risco ou dano relevante, a comunicação à ANPD deve sair em até 3 dias úteis
+        (<strong>até {{ prazo_anpd|data }}</strong>). Quem decide é o encarregado (DPO).</p>
+      {% if pode_atender %}
+      <form class="ch-form" method="post" action="{{ url_for('chamados.seguranca', chamado_id=chamado.id) }}">
+        {{ m.csrf() }}
+        {{ m.campo("seg_conhecido_em", "Quando a TI soube", {"seg_conhecido_em": conhecido_em}, None, tipo="datetime-local") }}
+        {{ m.campo_texto("seg_acoes", "O que foi feito", {"seg_acoes": chamado.seg_acoes or ""}, None, linhas=4) }}
+        {{ m.campo_select("seg_dados_pessoais", "Houve dado pessoal envolvido?", (("sim", "Sim"), ("nao", "Não"), ("nao_sei", "Ainda não sei")),
+                          {"seg_dados_pessoais": chamado.seg_dados_pessoais or ""}, None, vazio="Não informado") }}
+        <button class="botao botao--p" type="submit">Salvar registro</button>
+      </form>
+      <form class="mt-16" method="post" action="{{ url_for('chamados.encarregado', chamado_id=chamado.id) }}"
+            data-confirmar="O encarregado (DPO) recebe por e-mail o registro completo: conversa, notas internas e o que foi feito." data-confirmar-titulo="Enviar ao encarregado?" data-confirmar-botao="Enviar">
+        {{ m.csrf() }}<button class="botao botao--p" type="submit">{{ m.icone("email", "icone--p") }}Enviar registro ao encarregado (DPO)</button></form>
+      {% else %}
+      <dl class="ch-linhas">
+        <div><dt>Quando a TI soube</dt><dd>{{ chamado.seg_conhecido_em|datahora or "—" }}</dd></div>
+        <div><dt>Dado pessoal</dt><dd>{{ {"sim": "Sim", "nao": "Não", "nao_sei": "Ainda não sei"}.get(chamado.seg_dados_pessoais, "Não informado") }}</dd></div>
+      </dl>
+      {% endif %}
+    </section>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

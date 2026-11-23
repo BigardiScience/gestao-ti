@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}{{ email.assunto }}{% endblock %}
+{% block conteudo %}
+{% include "configuracoes/_abas.html" %}
+<div class="grade grade--lado">
+  <section class="painel" aria-labelledby="t-corpo">
+    <div class="painel__cabecalho"><h2 id="t-corpo">{{ email.assunto }}</h2>{% if email.status != "enviado" %}<span class="selo selo--{{ email.status }}">{{ status[email.status] }}</span>{% endif %}</div>
+    <div class="painel__corpo">
+      {% if email.modo == "simulacao" %}
+      <p class="pequeno discreto">Simulação: a mensagem não saiu do servidor, mas os links funcionam (dá para testar a assinatura por aqui).</p>
+      {% elif email.status == "enviado" %}
+      <p class="pequeno discreto">Links de assinatura e códigos ficam ocultos nesta cópia.</p>
+      {% endif %}
+      <iframe class="previa-email mt-10" src="{{ url_for('configuracoes.email_corpo', email_id=email.id) }}" sandbox="allow-popups allow-popups-to-escape-sandbox" title="Conteúdo do e-mail"></iframe>
+    </div>
+  </section>
+  <aside class="painel" aria-labelledby="t-dados">
+    <div class="painel__cabecalho"><h2 id="t-dados">Envio</h2></div>
+    <div class="painel__corpo">
+      <dl class="dados dados--1">
+        <div><dt>Para</dt><dd>{{ email.destinatario }}</dd></div>
+        {% if email.remetente %}<div><dt>De</dt><dd>{{ email.remetente }}</dd></div>{% endif %}
+        <div><dt>Quando</dt><dd>{{ email.criado_em|datahora_seg }}</dd></div>
+        <div><dt>Finalidade</dt><dd>{{ finalidades.get(email.finalidade, email.finalidade) }}</dd></div>
+        {% if email.tentativas > 1 %}<div><dt>Tentativas</dt><dd>{{ email.tentativas }}</dd></div>{% endif %}
+        {% if email.anexos %}<div><dt>Anexos</dt><dd>{{ email.anexos }}</dd></div>{% endif %}
+        {% if email.termo_id %}<div><dt>Termo</dt><dd><a href="{{ url_for('termos.detalhe', termo_id=email.termo_id) }}">{{ email.termo_codigo }}</a></dd></div>{% endif %}
+        {% if email.erro %}<div><dt>Erro</dt><dd class="forte">{{ email.erro }}</dd></div>{% endif %}
+      </dl>
+      {% if email.status == "falha" and email.termo_id and email.finalidade in ("termo", "lembrete") %}
+      <form class="mt-16" method="post" action="{{ url_for('termos.enviar', termo_id=email.termo_id) }}">{{ m.csrf() }}
+        <button class="botao botao--primario" type="submit">{{ m.icone("enviar") }}Tentar de novo</button></form>
+      {% endif %}
+    </div>
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Trocar aparelho{% endblock %}
+{% block conteudo %}
+{{ m.cabecalho("Trocar aparelho", voltar=url_for('colaboradores.detalhe', colaborador_id=vinculo.colaborador_id), voltar_rotulo=vinculo.colaborador_nome) }}
+<div class="formulario pilha">
+  {% include "vinculos/_resumo.html" %}
+  <form class="painel" method="post" novalidate>
+    {{ m.csrf() }}
+    <div class="painel__corpo">
+      <div class="secao-form">
+        <h2>Aparelho que sai</h2>
+        <div class="grade-form">
+          {{ m.campo("motivo", "Motivo da troca", form, erros, obrigatorio=True, largo=True, attrs='placeholder="Ex.: tela quebrada, bateria com defeito"') }}
+          {{ m.campo_select("estado_devolucao", "Estado", estados|pares, form, erros, obrigatorio=True) }}
+          {{ m.campo_select("destino", "Para onde vai", destinos|opcoes_status, form, erros, obrigatorio=True, vazio=None) }}
+          <div class="campo campo--largo{% if erros.get('motivo_baixa') %} campo--erro{% endif %}" data-mostrar-quando="destino=baixado" hidden>
+            <label for="c-motivo_baixa">Motivo da baixa</label>
+            <select id="c-motivo_baixa" name="motivo_baixa"><option value="">Selecione</option>
+              {% for mtv in motivos_baixa %}<option {% if form.get('motivo_baixa') == mtv %}selected{% endif %}>{{ mtv }}</option>{% endfor %}
+            </select>
+            {{ m.erro_campo(erros, "motivo_baixa") }}
+          </div>
+        </div>
+      </div>
+      <div class="secao-form">
+        <h2>Aparelho que entra</h2>
+        {% if tem_disponiveis or aparelho_escolhido %}
+        <div class="grade-form">
+          {{ m.seletor("aparelho_id", "Novo aparelho", url_for('vinculos.opcoes_aparelhos'), aparelho_escolhido, erros, "Digite o modelo, o IMEI ou a linha") }}
+          {{ m.campo("entregue_em", "Data e hora da troca", form, erros, tipo="datetime-local", obrigatorio=True) }}
+        </div>
+        {% call m.mais_campos(("estado", "acessorios", "observacoes"), form, erros) %}
+          {{ m.campo_select("estado", "Estado do novo aparelho", estados|pares, form, erros, vazio="O mesmo do cadastro") }}
+          {{ m.campo("acessorios", "Acessórios entregues", form, erros, attrs='placeholder="Se vazio, usa os do cadastro"') }}
+          {{ m.campo_texto("observacoes", "Observações", form, erros, linhas=2) }}
+        {% endcall %}
+        {% else %}
+        <p class="discreto">Não há aparelho disponível para a troca. <a href="{{ url_for('aparelhos.novo') }}">Cadastre um aparelho</a>.</p>
+        {% endif %}
+      </div>
+      <div class="opcoes mt-20">
+        {{ m.marcacao("gerar_termo", "Gerar o termo do novo aparelho", form, padrao=True) }}
+        {{ m.marcacao("enviar_agora", "Enviar o termo por e-mail agora, sem revisar", form) }}
+      </div>
+      <div class="rodape-form">
+        <a class="botao botao--fantasma" href="{{ url_for('colaboradores.detalhe', colaborador_id=vinculo.colaborador_id) }}">Cancelar</a>
+        <button class="botao botao--primario" type="submit" {% if not tem_disponiveis and not aparelho_escolhido %}disabled{% endif %}>{{ m.icone("atualizar") }}Trocar aparelho</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

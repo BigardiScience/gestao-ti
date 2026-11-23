@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Termos de responsabilidade{% endblock %}
+{% set extras = namespace(n=0) %}
+{% for chave in ("unidade", "departamento", "de", "ate") %}{% if filtros.get(chave) %}{% set extras.n = extras.n + 1 %}{% endif %}{% endfor %}
+{% block conteudo %}
+{% call m.cabecalho("Termos") %}
+  {% call m.mais_acoes() %}
+    <a href="{{ url_for('relatorios.exportar', tipo='termos', termo=filtros.get('status'), unidade=filtros.get('unidade'), departamento=filtros.get('departamento'), de=filtros.get('de'), ate=filtros.get('ate')) }}">{{ m.icone("baixar") }}Exportar para Excel</a>
+  {% endcall %}
+  {% if eh_admin() %}
+    {% set st = filtros.get("status") %}
+    {% if st == "gerado" and contagens.gerado %}
+    <form method="post" action="{{ url_for('termos.lote') }}" data-confirmar="Enviar o link de assinatura para {{ plural(contagens.gerado, 'colaborador', 'colaboradores') }}?" data-confirmar-titulo="Enviar todos" data-confirmar-botao="Enviar">
+      {{ m.csrf() }}<input type="hidden" name="acao" value="enviar_gerados"><button class="botao botao--primario" type="submit">{{ m.icone("enviar") }}Enviar todos ({{ contagens.gerado }})</button></form>
+    {% elif st == "enviado" and contagens.enviado %}
+    <form method="post" action="{{ url_for('termos.lote') }}" data-confirmar="Enviar um lembrete para quem ainda não assinou ({{ contagens.enviado }})?" data-confirmar-titulo="Enviar lembretes" data-confirmar-botao="Enviar lembretes">
+      {{ m.csrf() }}<input type="hidden" name="acao" value="lembrar_aguardando"><button class="botao botao--primario" type="submit">{{ m.icone("sino") }}Lembrar todos ({{ contagens.enviado }})</button></form>
+    {% elif st == "expirado" and contagens.expirado %}
+    <form method="post" action="{{ url_for('termos.lote') }}" data-confirmar="Gerar novos links e reenviar para {{ plural(contagens.expirado, 'colaborador', 'colaboradores') }}?" data-confirmar-titulo="Reenviar links expirados" data-confirmar-botao="Reenviar">
+      {{ m.csrf() }}<input type="hidden" name="acao" value="reenviar_expirados"><button class="botao botao--primario" type="submit">{{ m.icone("atualizar") }}Reenviar todos ({{ contagens.expirado }})</button></form>
+    {% endif %}
+  {% endif %}
+{% endcall %}
+
+{% include "termos/_abas.html" %}
+
+<section class="painel">
+  <form class="barra" method="get" role="search" aria-label="Filtrar termos">
+    <label class="barra__busca">{{ m.icone("busca", "icone--p") }}<span class="visualmente-oculto">Buscar</span>
+      <input type="search" name="q" value="{{ filtros.get('q', '') }}" placeholder="Nº do termo, colaborador, IMEI ou CPF"></label>
+    <div class="barra__fim">
+      <details class="filtros-mais">
+        <summary class="botao botao--p">Filtros{% if extras.n %} <span class="filtros-mais__contador">{{ extras.n }}</span>{% endif %}</summary>
+        <div class="filtros-mais__painel">
+          {{ m.campo_select("unidade", "Unidade", unidades|opcoes, filtros, None, vazio="Todas") }}
+          {{ m.campo_select("departamento", "Departamento", departamentos|pares, filtros, None, vazio="Todos") }}
+          {{ m.campo("de", "Emitidos a partir de", filtros, None, tipo="date") }}
+          {{ m.campo("ate", "Emitidos até", filtros, None, tipo="date") }}
+          <div class="botoes botoes--fim">
+            {% if extras.n %}<a class="botao botao--fantasma botao--p" href="{{ url_com(unidade=None, departamento=None, de=None, ate=None) }}">Limpar</a>{% endif %}
+            <button class="botao botao--primario botao--p" type="submit">Aplicar</button>
+          </div>
+        </div>
+      </details>
+    </div>
+    {% for oculto in ("status", "ordem") %}{% if request.args.get(oculto) %}<input type="hidden" name="{{ oculto }}" value="{{ request.args[oculto] }}">{% endif %}{% endfor %}
+    <button class="visualmente-oculto" type="submit" tabindex="-1">Buscar</button>
+  </form>
+
+  {% if pagina.itens %}
+  <div class="tabela-rolagem">
+    <table class="tabela tabela--cartoes">
+      <thead>
+        <tr>
+          <th>{{ m.ordenar("codigo", "Termo", ordem) }}</th>
+          <th>{{ m.ordenar("colaborador", "Colaborador", ordem) }}</th>
+          <th>{{ m.ordenar("recentes", "Emitido", ordem) }}</th>
+          <th>{{ m.ordenar("assinatura", "Situação", ordem) }}</th>
+          <th><span class="visualmente-oculto">Ações</span></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for t in pagina %}
+        <tr>
+          <td><a class="titulo-celula" href="{{ url_for('termos.detalhe', termo_id=t.id) }}">{{ t.codigo }}</a><span class="sub">{{ t.marca }} {{ t.modelo }}</span></td>
+          <td data-celular="linha"><a href="{{ url_for('colaboradores.detalhe', colaborador_id=t.colaborador_id) }}">{{ t.colaborador_nome }}</a><span class="sub">{{ t.colaborador_departamento }}</span></td>
+          <td class="num" data-celular="oculto">{{ t.emitido_em|data }}</td>
+          <td data-celular="direita">{{ m.selo_termo(t.status_efetivo) }}
+            <span class="sub">{% if t.status == "assinado" %}{{ t.assinado_em|data }}{% elif t.enviado_em %}{{ plural(t.envios, "envio") }}{% if t.lembretes %}, {{ plural(t.lembretes, "lembrete") }}{% endif %}{% endif %}</span></td>
+          <td class="celula-acoes" data-celular="oculto">
+            {% if t.status == "assinado" %}<a class="botao botao--quadrado botao--p botao--fantasma" href="{{ url_for('termos.pdf', termo_id=t.id) }}" title="Baixar PDF assinado">{{ m.icone("baixar", "icone--p") }}<span class="visualmente-oculto">Baixar PDF</span></a>
+            {% elif eh_admin() and t.status == "gerado" %}<form class="inline" method="post" action="{{ url_for('termos.enviar', termo_id=t.id) }}">{{ m.csrf() }}<input type="hidden" name="voltar" value="{{ request.full_path }}"><button class="botao botao--p" type="submit">Enviar</button></form>
+            {% elif eh_admin() and t.status_efetivo == "expirado" %}<form class="inline" method="post" action="{{ url_for('termos.enviar', termo_id=t.id) }}">{{ m.csrf() }}<input type="hidden" name="voltar" value="{{ request.full_path }}"><button class="botao botao--p" type="submit">Reenviar</button></form>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ m.paginacao(pagina) }}
+  {% else %}
+    {{ m.vazio("Nenhum termo aqui", "Os termos são gerados ao entregar um aparelho." if not filtros else "Ajuste a busca ou os filtros.") }}
+  {% endif %}
+</section>
+{% endblock %}

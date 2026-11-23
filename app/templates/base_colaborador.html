@@ -1,0 +1,38 @@
+{% import "_macros.html" as m %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="relogio" content="{{ estatico('js/relogio.js') }}">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block titulo %}{% endblock %} | Pedidos para a TI</title>
+  <link rel="icon" href="{{ estatico('img/marca.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ estatico('css/pedidos.css') }}">
+  <script src="{{ estatico('js/pedidos.js') }}" defer></script>
+</head>
+<body>
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+<header class="ped-topo">
+  <div class="ped-topo__dentro">
+    <a class="ped-marca" href="{{ url_for('pedidos.novo') }}">
+      <span class="ped-marca__simbolo">{{ m.icone("computador") }}</span>
+      <span class="ped-marca__texto"><strong>Pedidos para a TI</strong>
+        <span>{{ usuario.nome }}{% if nome_unidade(usuario.unidade_id) %} · {{ nome_unidade(usuario.unidade_id) }}{% endif %}</span></span>
+    </a>
+    <nav class="ped-topo__acoes" aria-label="Pedidos">
+      {% if eh_ti_chamados() %}<a class="ped-botao" href="{{ url_for('chamados.fila') }}">Fila da TI</a>{% endif %}
+      <a class="ped-botao" href="{{ url_for('pedidos.lista') }}"{% if request.endpoint == 'pedidos.lista' %} aria-current="page"{% endif %}>{{ m.icone("lista") }}Meus pedidos
+        {%- set novas = respostas_novas_pedidos() %}<span class="contador-novas" data-novas-total{% if not novas %} hidden{% endif %}>{{ novas }}</span>
+        <span class="visualmente-oculto" data-novas-total-texto>{% if novas %}({{ novas }} {{ "resposta nova" if novas == 1 else "respostas novas" }} da TI){% endif %}</span></a>
+      <form method="post" action="{{ url_for('auth.sair') }}">{{ m.csrf() }}
+        <button class="ped-botao ped-botao--escuro" type="submit">{{ m.icone("sair") }}Sair</button></form>
+    </nav>
+  </div>
+</header>
+<main data-nao-lidas="{{ url_for('pedidos.nao_lidas') }}" class="ped-conteudo{% block largura %}{% endblock %}" id="conteudo">
+  {{ m.avisos(fechar=False) }}
+  {% block conteudo %}{% endblock %}
+</main>
+</body>
+</html>

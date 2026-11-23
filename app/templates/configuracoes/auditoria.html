@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Auditoria{% endblock %}
+{% set extras = namespace(n=0) %}
+{% for chave in ("usuario", "de", "ate") %}{% if filtros.get(chave) %}{% set extras.n = extras.n + 1 %}{% endif %}{% endfor %}
+{% block conteudo %}
+{% include "configuracoes/_abas.html" %}
+<section class="painel">
+  <form class="barra" method="get" aria-label="Filtrar auditoria">
+    <div class="campo">
+      <label class="visualmente-oculto" for="f-acao">Ação</label>
+      <select id="f-acao" class="entrada" name="acao" data-filtro-automatico><option value="">Todas as ações</option>{% for chave, rotulo in acoes.items() %}<option value="{{ chave }}" {% if filtros.get('acao') == chave %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select>
+    </div>
+    <div class="barra__fim">
+      <details class="filtros-mais">
+        <summary class="botao botao--p">Filtros{% if extras.n %} <span class="filtros-mais__contador">{{ extras.n }}</span>{% endif %}</summary>
+        <div class="filtros-mais__painel">
+          {{ m.campo_select("usuario", "Usuário", usuarios|opcoes, filtros, None, vazio="Todos") }}
+          {{ m.campo("de", "De", filtros, None, tipo="date") }}
+          {{ m.campo("ate", "Até", filtros, None, tipo="date") }}
+          <div class="botoes botoes--fim">
+            {% if extras.n %}<a class="botao botao--fantasma botao--p" href="{{ url_com(usuario=None, de=None, ate=None) }}">Limpar</a>{% endif %}
+            <button class="botao botao--primario botao--p" type="submit">Aplicar</button>
+          </div>
+        </div>
+      </details>
+    </div>
+    <noscript><button class="botao botao--p" type="submit">Filtrar</button></noscript>
+  </form>
+  {% if pagina.itens %}
+  <div class="tabela-rolagem">
+    <table class="tabela tabela--compacta tabela--cartoes">
+      <thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Detalhes</th></tr></thead>
+      <tbody>
+      {% for a in pagina %}
+        <tr>
+          <td class="num sem-quebra" data-celular="direita"><time datetime="{{ a.ocorrido_em }}" title="{{ a.ocorrido_em|datahora_seg }}{% if a.ip %} · IP {{ a.ip }}{% endif %}">{{ a.ocorrido_em|quando }}</time></td>
+          <td>{{ a.usuario_nome or "—" }}</td>
+          <td data-celular="linha">{{ acoes.get(a.acao, a.acao) }}</td>
+          <td data-celular="linha" class="pequeno discreto">{% set d = a.detalhes|fromjson %}{% if d %}{% for k, v in d.items() %}{{ k }}: {{ v }}{{ "; " if not loop.last }}{% endfor %}{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ m.paginacao(pagina) }}
+  {% else %}{{ m.vazio("Nenhum registro com esses filtros") }}{% endif %}
+</section>
+{% endblock %}

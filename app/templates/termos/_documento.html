@@ -1,0 +1,27 @@
+{# Exibe o conteúdo congelado do termo. Variáveis: conteudo, evidencias (opcional) #}
+<article class="documento" aria-label="Termo de responsabilidade">
+  {% if cfg("logo_arquivo") %}<img class="documento__logo" src="{{ url_for('assinatura.logo') }}" alt="{{ conteudo.empresa.nome }}">{% endif %}
+  <h2 class="documento__titulo">{{ conteudo.titulo }}</h2>
+  <p class="documento__sub">{{ conteudo.empresa.nome }}{% if conteudo.empresa.cnpj %}, CNPJ {{ conteudo.empresa.cnpj }}{% endif %}. Termo nº {{ conteudo.codigo }}, emitido em {{ conteudo.emitido_em|data }}.</p>
+  {% for secao in conteudo.secoes %}
+  <h3>{{ loop.index }}. {{ secao.titulo }}</h3>
+  <table>
+    {% for rotulo, valor in secao.campos %}<tr><th scope="row">{{ rotulo }}</th><td>{{ valor }}</td></tr>{% endfor %}
+  </table>
+  {% endfor %}
+  <h3>{{ conteudo.secoes|length + 1 }}. Declaração e condições de uso</h3>
+  {% for paragrafo in paragrafos(conteudo.texto) %}<p>{{ paragrafo|negrito }}</p>{% endfor %}
+  {% if conteudo.observacoes %}<p><strong>Observações da entrega:</strong> {{ conteudo.observacoes }}</p>{% endif %}
+  <p>{{ conteudo.local_data }}.</p>
+  <div class="documento__assinatura">
+    {% if evidencias %}
+      {% if evidencias.assinatura.tipo == "desenho" %}{{ evidencias.assinatura.desenho|assinatura_svg }}
+      {% else %}<div class="documento__assinatura-digitada">{{ evidencias.signatario.nome_digitado }}</div>{% endif %}
+    {% else %}<div class="vazio-assinatura" aria-hidden="true"></div>{% endif %}
+    <div class="documento__traco">
+      <strong>{{ conteudo.signatario.nome }}</strong><br>
+      <span class="pequeno discreto">CPF {{ conteudo.signatario.cpf }}</span>
+      {% if evidencias %}<br><span class="pequeno discreto">Assinado eletronicamente em {{ evidencias.registro.assinado_em_local }}. Código de verificação {{ evidencias.verificacao.codigo }}.</span>{% endif %}
+    </div>
+  </div>
+</article>

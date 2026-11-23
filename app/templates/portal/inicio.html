@@ -1,0 +1,54 @@
+{% extends "base_publica.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Meus aparelhos e termos{% endblock %}
+{% block topo_direita %}
+<form method="post" action="{{ url_for('portal.sair') }}">{{ m.csrf() }}<button class="botao botao--p" type="submit">{{ m.icone("sair", "icone--p") }}Sair</button></form>
+{% endblock %}
+{% block conteudo %}
+<h1>Olá, {{ colaborador.nome.split()[0] }}</h1>
+
+{% set pendentes = termos|selectattr("status", "equalto", "enviado")|list %}
+{% if pendentes %}
+<div class="avisos mt-16"><div class="aviso aviso--aviso">{{ m.icone("caneta") }}<div class="aviso__texto">Você tem {{ plural(pendentes|length, "termo") }} para assinar.</div></div></div>
+{% endif %}
+
+<section class="painel mt-16" aria-labelledby="t-aparelhos">
+  <div class="painel__cabecalho"><h2 id="t-aparelhos">Aparelhos com você</h2></div>
+  <div class="painel__corpo pilha">
+    {% for a in aparelhos %}
+    <div class="etiqueta etiqueta--compacta">
+      <span class="etiqueta__modelo">{{ a.marca }} {{ a.modelo }}</span>
+      <span class="etiqueta__imei">{{ m.imei(a.imei) }}</span>
+    </div>
+    <dl class="dados dados--linhas">
+      <div><dt>Linha</dt><dd>{{ a.linha|telefone if a.linha else "Sem linha" }}{% if a.linha and a.operadora %} ({{ a.operadora }}){% endif %}</dd></div>
+      <div><dt>Recebido em</dt><dd>{{ a.entregue_em|data }}</dd></div>
+      {% if a.acessorios_entrega %}<div><dt>Acessórios</dt><dd>{{ a.acessorios_entrega }}</dd></div>{% endif %}
+      {% if a.devolucao_prevista %}<div><dt>Devolver até</dt><dd>{{ a.devolucao_prevista|data }}</dd></div>{% endif %}
+    </dl>
+    {% else %}
+    <p class="discreto">Nenhum aparelho corporativo está com você.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="painel mt-16" aria-labelledby="t-termos">
+  <div class="painel__cabecalho"><h2 id="t-termos">Meus termos</h2></div>
+  {% if termos %}
+  <ul class="pendencias">
+    {% for t in termos %}
+    <li class="pendencia">
+      <span class="pendencia__texto"><a class="forte" href="{{ url_for('portal.termo', termo_id=t.id) }}">{{ t.codigo }}</a>
+        <small>{{ t.marca }} {{ t.modelo }}{% if t.assinado_em %} · assinado em {{ t.assinado_em|data }}{% endif %}</small></span>
+      {% if t.status == "enviado" %}<a class="botao botao--p botao--primario" href="{{ url_for('portal.termo', termo_id=t.id) }}">Assinar</a>
+      {% elif t.status == "assinado" %}<a class="botao botao--p" href="{{ url_for('portal.pdf', termo_id=t.id) }}">{{ m.icone("baixar", "icone--p") }}PDF</a>
+      {% else %}{{ m.selo_termo(t.status_efetivo if t.status_efetivo != "expirado" else "enviado") }}{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="painel__corpo"><p class="discreto">Nenhum termo emitido para você.</p></div>
+  {% endif %}
+</section>
+{% if contato %}<p class="pequeno discreto mt-16">Dúvidas? Fale com o TI: <a href="mailto:{{ contato }}">{{ contato }}</a>.</p>{% endif %}
+{% endblock %}

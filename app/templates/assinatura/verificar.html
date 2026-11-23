@@ -1,0 +1,52 @@
+{% extends "base_publica.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Verificar autenticidade{% endblock %}
+{% block conteudo %}
+<h1>Verificar um termo</h1>
+<p class="secundario mt-6">Envie o PDF assinado ou informe o código de verificação do rodapé.</p>
+
+{% if resultado %}
+<div class="resultado-verificacao mt-20" role="status">
+  {{ m.icone("ok-circulo") }}
+  <div class="pilha">
+    <div>
+      <h2>{% if resultado.arquivo_confere %}Documento autêntico e íntegro{% else %}Código válido{% endif %}</h2>
+      <p>{% if resultado.arquivo_confere %}Este arquivo é exatamente o termo assinado registrado pela plataforma.{% else %}Existe um termo assinado com este código. Para confirmar que um arquivo não foi alterado, envie o PDF.{% endif %}</p>
+    </div>
+    <dl class="dados">
+      <div><dt>Termo</dt><dd>{{ resultado.codigo }}</dd></div>
+      <div><dt>Assinado por</dt><dd>{{ resultado.signatario }}</dd></div>
+      <div><dt>Assinado em</dt><dd>{{ resultado.assinado_em|datahora_seg }}</dd></div>
+      <div><dt>Empresa</dt><dd>{{ resultado.empresa }}</dd></div>
+      {% if resultado.aparelho %}<div><dt>Aparelho</dt><dd>{{ resultado.aparelho }}</dd></div>{% endif %}
+      <div><dt>Registro de evidências</dt><dd>{{ "Íntegro (selo confere)" if resultado.registro_integro else "Selo não confere" }}</dd></div>
+    </dl>
+    <p class="hash">SHA-256 do PDF original: {{ resultado.pdf_hash }}</p>
+  </div>
+</div>
+{% elif erro %}
+<div class="resultado-verificacao resultado-verificacao--falha mt-20" role="alert">
+  {{ m.icone("erro") }}<div><h2>Não confirmado</h2><p>{{ erro }}</p></div>
+</div>
+{% endif %}
+
+<div class="grade grade--2 mt-20">
+  <form class="painel" method="post" enctype="multipart/form-data">
+    {{ m.csrf() }}
+    <div class="painel__cabecalho"><h2>Enviar o PDF</h2></div>
+    <div class="painel__corpo pilha">
+      <div class="campo"><label for="arquivo">Termo assinado (PDF)</label><input id="arquivo" class="entrada" type="file" name="arquivo" accept="application/pdf,.pdf" required></div>
+      <p class="pequeno discreto">O arquivo não fica guardado.</p>
+      <button class="botao botao--primario" type="submit">Verificar arquivo</button>
+    </div>
+  </form>
+  <form class="painel" method="post">
+    {{ m.csrf() }}
+    <div class="painel__cabecalho"><h2>Informar o código</h2></div>
+    <div class="painel__corpo pilha">
+      <div class="campo"><label for="codigo">Código de verificação</label><input id="codigo" type="text" name="codigo" value="{{ codigo }}" placeholder="XXXX-XXXX-XXXX" autocomplete="off" required></div>
+      <button class="botao" type="submit">Verificar código</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}{{ colaborador.nome }}{% endblock %}
+{% set c = colaborador %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div class="cabecalho__texto">
+    <a class="cabecalho__voltar" href="{{ url_for('colaboradores.lista') }}">{{ m.icone("voltar", "icone--p") }}Colaboradores</a>
+    <div class="titulo-status"><h1>{{ c.nome }}</h1>{% if c.situacao == "desligado" %}<span class="selo selo--desligado">Desligado em {{ c.desligado_em|data }}</span>{% endif %}</div>
+    <div class="cabecalho__linha"><span>{{ c.cargo }}</span><span>{{ c.departamento }}</span><span>{{ c.unidade_nome }}</span></div>
+  </div>
+  {% if eh_admin() %}
+  <div class="cabecalho__acoes">
+    {% call m.mais_acoes() %}
+      <a href="{{ url_for('colaboradores.editar', colaborador_id=c.id) }}">{{ m.icone("editar") }}Editar cadastro</a>
+      {% if c.situacao == "ativo" %}
+      <form method="post" action="{{ url_for('colaboradores.desligar', colaborador_id=c.id) }}"
+            data-confirmar="{% if aparelhos %}{{ c.nome }} ainda está com {{ plural(aparelhos|length, 'aparelho') }}. O desligamento fica registrado e a devolução aparece como pendência.{% else %}O colaborador deixa de poder receber aparelhos e de acessar o portal.{% endif %}"
+            data-confirmar-titulo="Desligar colaborador?" data-confirmar-botao="Desligar">
+        {{ m.csrf() }}<button type="submit">{{ m.icone("sair") }}Desligar</button>
+      </form>
+      {% else %}
+      <form method="post" action="{{ url_for('colaboradores.reativar', colaborador_id=c.id) }}">{{ m.csrf() }}
+        <button type="submit">{{ m.icone("atualizar") }}Reativar</button></form>
+      {% endif %}
+      {% if not aparelhos and not anteriores and not termos %}
+      <hr>
+      <form method="post" action="{{ url_for('colaboradores.excluir', colaborador_id=c.id) }}"
+            data-confirmar="O cadastro será apagado. Use só para cadastros feitos por engano." data-confirmar-titulo="Excluir colaborador?"
+            data-confirmar-botao="Excluir" data-confirmar-perigo="1">
+        {{ m.csrf() }}<button class="perigo" type="submit">{{ m.icone("lixeira") }}Excluir cadastro</button>
+      </form>
+      {% endif %}
+    {% endcall %}
+    {% if c.situacao == "ativo" %}<a class="botao botao--primario" href="{{ url_for('vinculos.entregar', colaborador=c.id) }}">{{ m.icone("entregar") }}Entregar aparelho</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{% if c.situacao == "desligado" and aparelhos %}
+<div class="avisos"><div class="aviso aviso--erro">{{ m.icone("alerta") }}<div class="aviso__texto">Desligado com {{ plural(aparelhos|length, "aparelho") }} ainda sob responsabilidade. Registre a devolução.</div></div></div>
+{% endif %}
+
+<div class="grade grade--lado">
+  <div class="pilha">
+    <section class="painel" aria-labelledby="t-aparelhos">
+      <div class="painel__cabecalho"><h2 id="t-aparelhos">Aparelhos</h2></div>
+      {% if aparelhos %}
+      <ul class="pendencias">
+        {% for a in aparelhos %}
+        <li class="pendencia">
+          {{ m.icone("celular", "icone--p") }}
+          <span class="pendencia__texto"><a class="forte" href="{{ url_for('aparelhos.detalhe', aparelho_id=a.aparelho_id) }}">{{ a.marca }} {{ a.modelo }}</a>
+            <small>{{ a.linha|telefone if a.linha else a.imei }} · desde {{ a.entregue_em|data }}</small></span>
+          {{ m.status_termo_vinculo(a.termo_status, a.termo_expira_em) }}
+          {% if eh_admin() %}
+          {% call m.mais_acoes("Ações do aparelho") %}
+            {% if a.termo_id %}<a href="{{ url_for('termos.detalhe', termo_id=a.termo_id) }}">{{ m.icone("documento") }}Termo {{ a.termo_codigo }}</a>
+            {% else %}<form method="post" action="{{ url_for('termos.emitir', vinculo_id=a.vinculo_id) }}">{{ m.csrf() }}<button type="submit">{{ m.icone("documento") }}Emitir termo</button></form>{% endif %}
+            <a href="{{ url_for('vinculos.devolver', vinculo_id=a.vinculo_id) }}">{{ m.icone("devolver") }}Registrar devolução</a>
+            <a href="{{ url_for('vinculos.transferir', vinculo_id=a.vinculo_id) }}">{{ m.icone("movimento") }}Transferir para outra pessoa</a>
+            <a href="{{ url_for('vinculos.substituir', vinculo_id=a.vinculo_id) }}">{{ m.icone("atualizar") }}Trocar por outro aparelho</a>
+          {% endcall %}
+          {% elif a.termo_id %}<a class="pendencia__acao" href="{{ url_for('termos.detalhe', termo_id=a.termo_id) }}">{{ a.termo_codigo }}</a>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="painel__corpo"><p class="discreto">Nenhum aparelho com {{ c.nome.split()[0] }}.</p></div>
+      {% endif %}
+    </section>
+
+    {% if termos %}
+    <section class="painel" aria-labelledby="t-termos">
+      <div class="painel__cabecalho"><h2 id="t-termos">Termos</h2></div>
+      <ul class="pendencias">
+        {% for t in termos %}
+        <li class="pendencia">
+          {{ m.icone("documento", "icone--p") }}
+          <span class="pendencia__texto"><a class="forte" href="{{ url_for('termos.detalhe', termo_id=t.id) }}">{{ t.codigo }}</a>
+            <small>{{ t.marca }} {{ t.modelo }} · emitido em {{ t.emitido_em|data }}</small></span>
+          {{ m.status_termo_vinculo(t.status, t.token_expira_em, False) }}
+          {% if t.status == "assinado" %}<a class="botao botao--quadrado botao--p botao--fantasma" href="{{ url_for('termos.pdf', termo_id=t.id) }}" title="Baixar PDF assinado">{{ m.icone("baixar", "icone--p") }}<span class="visualmente-oculto">Baixar PDF assinado</span></a>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    <section class="painel" aria-labelledby="t-hist">
+      <div class="painel__cabecalho"><h2 id="t-hist">Histórico</h2></div>
+      <div class="painel__corpo">
+        {% if historico %}
+        <ul class="historico">{% for mov in historico[:12] %}{{ m.linha_historico(mov, mostrar_aparelho=True) }}{% endfor %}</ul>
+        {% if historico|length > 12 %}<a class="ver-tudo" href="{{ url_for('movimentacoes.lista', colaborador_id=c.id) }}">Ver todo o histórico</a>{% endif %}
+        {% else %}<p class="discreto">Sem registros.</p>{% endif %}
+      </div>
+    </section>
+  </div>
+
+  <div class="pilha">
+    <section class="painel" aria-labelledby="t-dados">
+      <div class="painel__cabecalho"><h2 id="t-dados">Dados</h2></div>
+      <div class="painel__corpo">
+        <dl class="dados dados--1">
+          <div><dt>CPF</dt><dd>{{ c.cpf|cpf if eh_admin() else c.cpf|cpf_mascarado }}</dd></div>
+          <div><dt>E-mail</dt><dd>{{ c.email }}</dd></div>
+          {% if c.telefone %}<div><dt>Telefone</dt><dd>{{ c.telefone|telefone }}</dd></div>{% endif %}
+          {% if c.matricula %}<div><dt>Matrícula</dt><dd>{{ c.matricula }}</dd></div>{% endif %}
+          {% if c.observacoes %}<div><dt>Observações</dt><dd>{{ c.observacoes }}</dd></div>{% endif %}
+        </dl>
+      </div>
+    </section>
+
+    {% if anteriores %}
+    <section class="painel" aria-labelledby="t-anteriores">
+      <div class="painel__cabecalho"><h2 id="t-anteriores">Aparelhos anteriores</h2></div>
+      <ul class="pendencias">
+        {% for v in anteriores %}
+        <li class="pendencia">
+          <span class="pendencia__texto"><a href="{{ url_for('aparelhos.detalhe', aparelho_id=v.aparelho_id) }}">{{ v.marca }} {{ v.modelo }}</a>
+            <small>{{ v.entregue_em|data }} a {{ v.devolvido_em|data }}</small></span>
+          <a class="pendencia__acao" href="{{ url_for('vinculos.comprovante', vinculo_id=v.id) }}" target="_blank" rel="noopener" title="Comprovante de devolução">{{ m.icone("baixar", "icone--p") }}<span class="visualmente-oculto">Comprovante de devolução</span></a>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {% if emails %}
+    <details class="painel recolhivel">
+      <summary>E-mails enviados <small>{{ emails|length }}</small></summary>
+      <ul class="pendencias">
+        {% for e in emails %}
+        <li class="pendencia">
+          <span class="pendencia__texto"><a href="{{ url_for('configuracoes.email_detalhe', email_id=e.id) }}">{{ e.assunto }}</a><small>{{ e.criado_em|datahora }}</small></span>
+          {% if e.status == "falha" %}<span class="selo selo--falha">Falha</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

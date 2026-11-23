@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}E-mails enviados{% endblock %}
+{% set extras = namespace(n=0) %}
+{% for chave in ("finalidade", "de", "ate") %}{% if filtros.get(chave) %}{% set extras.n = extras.n + 1 %}{% endif %}{% endfor %}
+{% block conteudo %}
+{% include "configuracoes/_abas.html" %}
+<section class="painel">
+  <form class="barra" method="get" role="search" aria-label="Filtrar e-mails">
+    <label class="barra__busca">{{ m.icone("busca", "icone--p") }}<span class="visualmente-oculto">Buscar</span>
+      <input type="search" name="q" value="{{ filtros.get('q', '') }}" placeholder="Destinatário ou assunto"></label>
+    {{ m.chips("status", [("", "Todos")] + status|itens_dict, filtros.get("status"), "Situação") }}
+    <div class="barra__fim">
+      <details class="filtros-mais">
+        <summary class="botao botao--p">Filtros{% if extras.n %} <span class="filtros-mais__contador">{{ extras.n }}</span>{% endif %}</summary>
+        <div class="filtros-mais__painel">
+          {{ m.campo_select("finalidade", "Finalidade", finalidades|itens_dict, filtros, None, vazio="Todas") }}
+          {{ m.campo("de", "De", filtros, None, tipo="date") }}
+          {{ m.campo("ate", "Até", filtros, None, tipo="date") }}
+          <div class="botoes botoes--fim">
+            {% if extras.n %}<a class="botao botao--fantasma botao--p" href="{{ url_com(finalidade=None, de=None, ate=None) }}">Limpar</a>{% endif %}
+            <button class="botao botao--primario botao--p" type="submit">Aplicar</button>
+          </div>
+        </div>
+      </details>
+    </div>
+    {% if request.args.get("status") %}<input type="hidden" name="status" value="{{ request.args.status }}">{% endif %}
+    <button class="visualmente-oculto" type="submit" tabindex="-1">Buscar</button>
+  </form>
+  {% if pagina.itens %}
+  <div class="tabela-rolagem">
+    <table class="tabela tabela--cartoes">
+      <thead><tr><th>Assunto</th><th>Para</th><th>Quando</th><th><span class="visualmente-oculto">Situação</span></th></tr></thead>
+      <tbody>
+      {% for e in pagina %}
+        <tr>
+          <td><a class="titulo-celula" href="{{ url_for('configuracoes.email_detalhe', email_id=e.id) }}">{{ e.assunto }}</a><span class="sub">{{ finalidades.get(e.finalidade, e.finalidade) }}</span></td>
+          <td data-celular="linha">{{ e.destinatario }}</td>
+          <td class="num sem-quebra" data-celular="oculto">{{ e.criado_em|quando }}</td>
+          <td data-celular="direita">{% if e.status == "falha" %}<span class="selo selo--falha">{{ status[e.status] }}</span>{% endif %}{% if e.erro %}<span class="sub">{{ e.erro }}</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ m.paginacao(pagina) }}
+  {% else %}
+  {{ m.vazio("Nenhum e-mail registrado", "Termos, lembretes, códigos e avisos enviados aparecem aqui.") }}
+  {% endif %}
+</section>
+{% endblock %}

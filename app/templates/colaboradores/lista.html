@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Colaboradores{% endblock %}
+{% set extras = namespace(n=0) %}
+{% for chave in ("unidade", "departamento", "aparelho", "termo") %}{% if filtros.get(chave) %}{% set extras.n = extras.n + 1 %}{% endif %}{% endfor %}
+{% block conteudo %}
+{% call m.cabecalho("Colaboradores", pagina.total) %}
+  {% call m.mais_acoes() %}
+    {% if eh_admin() %}<a href="{{ url_for('colaboradores.importar') }}">{{ m.icone("planilha") }}Importar planilha</a>{% endif %}
+    <a href="{{ url_for('relatorios.exportar', tipo='colaboradores', unidade=filtros.get('unidade'), departamento=filtros.get('departamento'), situacao=filtros.get('situacao')) }}">{{ m.icone("baixar") }}Exportar para Excel</a>
+  {% endcall %}
+  {% if eh_admin() %}<a class="botao botao--primario" href="{{ url_for('colaboradores.novo') }}">{{ m.icone("mais") }}Cadastrar colaborador</a>{% endif %}
+{% endcall %}
+
+<section class="painel">
+  <form class="barra" method="get" role="search" aria-label="Filtrar colaboradores">
+    <label class="barra__busca">{{ m.icone("busca", "icone--p") }}<span class="visualmente-oculto">Buscar</span>
+      <input type="search" name="q" value="{{ filtros.get('q', '') }}" placeholder="Nome, CPF, e-mail, matrícula ou cargo"></label>
+    {{ m.chips("situacao", (("ativo", "Ativos"), ("desligado", "Desligados"), ("todos", "Todos")), request.args.get("situacao", "ativo"), "Situação") }}
+    <div class="barra__fim">
+      <details class="filtros-mais">
+        <summary class="botao botao--p">Filtros{% if extras.n %} <span class="filtros-mais__contador">{{ extras.n }}</span>{% endif %}</summary>
+        <div class="filtros-mais__painel">
+          {{ m.campo_select("unidade", "Unidade", unidades|opcoes, filtros, None, vazio="Todas") }}
+          {{ m.campo_select("departamento", "Departamento", departamentos|pares, filtros, None, vazio="Todos") }}
+          {{ m.campo_select("aparelho", "Aparelho", (("com", "Com aparelho"), ("sem", "Sem aparelho")), filtros, None, vazio="Com ou sem") }}
+          {{ m.campo_select("termo", "Termo", (("pendente", "Com termo pendente"), ("assinado", "Com termo assinado")), filtros, None, vazio="Qualquer") }}
+          <div class="botoes botoes--fim">
+            {% if extras.n %}<a class="botao botao--fantasma botao--p" href="{{ url_com(unidade=None, departamento=None, aparelho=None, termo=None) }}">Limpar</a>{% endif %}
+            <button class="botao botao--primario botao--p" type="submit">Aplicar</button>
+          </div>
+        </div>
+      </details>
+    </div>
+    {% for oculto in ("situacao", "ordem") %}{% if request.args.get(oculto) %}<input type="hidden" name="{{ oculto }}" value="{{ request.args[oculto] }}">{% endif %}{% endfor %}
+    <button class="visualmente-oculto" type="submit" tabindex="-1">Buscar</button>
+  </form>
+
+  {% if pagina.itens %}
+  <div class="tabela-rolagem">
+    <table class="tabela tabela--cartoes">
+      <thead>
+        <tr>
+          <th>{{ m.ordenar("nome", "Nome", ordem) }}</th>
+          <th>{{ m.ordenar("departamento", "Departamento", ordem) }}</th>
+          <th>{{ m.ordenar("unidade", "Unidade", ordem) }}</th>
+          <th>{{ m.ordenar("aparelhos", "Aparelhos", ordem) }}</th>
+          <th><span class="visualmente-oculto">Termos</span></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for c in pagina %}
+        <tr>
+          <td><a class="titulo-celula" href="{{ url_for('colaboradores.detalhe', colaborador_id=c.id) }}">{{ c.nome }}</a><span class="sub">{{ c.cargo }}{% if c.situacao == "desligado" %} · desligado{% endif %}</span></td>
+          <td data-celular="oculto">{{ c.departamento }}</td>
+          <td data-celular="oculto">{{ c.unidade_nome }}</td>
+          <td data-celular="linha">{% if c.aparelhos_ativos %}{{ c.aparelhos_descricao }}{% else %}<span class="discreto">—</span>{% endif %}</td>
+          <td data-celular="direita" class="direita">{% if c.termos_pendentes %}<span class="selo selo--enviado">{{ plural(c.termos_pendentes, "termo pendente", "termos pendentes") }}</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ m.paginacao(pagina) }}
+  {% elif request.args.get("q") or extras.n %}
+    {{ m.vazio("Nenhum colaborador encontrado", "Ajuste a busca ou os filtros.") }}
+  {% else %}
+    {{ m.vazio("Nenhum colaborador por aqui", None, url_for('colaboradores.novo') if eh_admin() else none, "Cadastrar colaborador") }}
+  {% endif %}
+</section>
+{% endblock %}

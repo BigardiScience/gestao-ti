@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Computadores{% endblock %}
+{% set extras = namespace(n=0) %}
+{% for chave in ("tipo", "sep", "setor") %}{% if filtros.get(chave) %}{% set extras.n = extras.n + 1 %}{% endif %}{% endfor %}
+{% set todas = unidade is none %}
+{% set situacao = filtros.get("situacao") %}
+{% block conteudo %}
+{% call m.cabecalho("Computadores") %}
+  {% call m.mais_acoes() %}
+    {% if pode_cadastrar_computador() %}<a href="{{ url_for('computadores.importar', unidade_id=unidade) }}">{{ m.icone("planilha") }}Importar planilha</a>{% endif %}
+    <a href="{{ url_for('computadores.exportar', **request.args.to_dict()) }}">{{ m.icone("baixar") }}Exportar para Excel</a>
+  {% endcall %}
+  {% if pode_cadastrar_computador() %}<a class="botao botao--primario" href="{{ url_for('computadores.novo', unidade=unidade) }}">{{ m.icone("mais") }}Cadastrar computador</a>{% endif %}
+{% endcall %}
+
+{% if unidades|length > 1 %}
+<nav class="abas" aria-label="Unidades">
+  <a class="aba{% if todas %} aba--ativa{% endif %}" href="{{ url_com(unidade='todas') }}"{% if todas %} aria-current="page"{% endif %}>Todas <small>{{ unidades|sum(attribute="total")|milhar }}</small></a>
+  {% for u in unidades %}
+  <a class="aba{% if unidade == u.id %} aba--ativa{% endif %}" href="{{ url_com(unidade=u.id) }}"{% if unidade == u.id %} aria-current="page"{% endif %}>{{ u.nome }} <small>{{ u.total|milhar }}</small></a>
+  {% endfor %}
+</nav>
+{% endif %}
+
+<div class="indicadores">
+  {{ m.indicador("Computadores", numeros.total, url_com(situacao=None, atencao=None), "total", not situacao and not filtros.get("atencao")) }}
+  {{ m.indicador("Em uso", numeros.em_uso, url_com(situacao="em_uso", atencao=None), "em_uso", situacao == "em_uso") }}
+  {{ m.indicador("Reserva", numeros.reserva, url_com(situacao="reserva", atencao=None), "reserva", situacao == "reserva") }}
+  {{ m.indicador("Manutenção", numeros.manutencao, url_com(situacao="manutencao", atencao=None), "manutencao", situacao == "manutencao") }}
+  {{ m.indicador("Precisam de atenção", numeros.atencao, url_com(atencao="1", situacao=None), "atencao", filtros.get("atencao")) }}
+</div>
+
+<section class="painel">
+  <form class="barra" method="get" role="search" aria-label="Filtrar computadores">
+    <label class="barra__busca">{{ m.icone("busca", "icone--p") }}<span class="visualmente-oculto">Buscar</span>
+      <input type="search" name="q" value="{{ filtros.get('q', '') }}" placeholder="{{ 'Máquina, usuário, IP ou MAC' if rede else 'Máquina, usuário ou setor' }}"></label>
+    <div class="barra__fim">
+      {% if numeros.desativado and situacao != "desativado" %}<a class="chip" href="{{ url_com(situacao='desativado', atencao=None) }}">Desativados {{ numeros.desativado }}</a>{% endif %}
+      {% if situacao == "desativado" %}<a class="chip chip--ativo" href="{{ url_com(situacao=None) }}">Desativados {{ numeros.desativado }} {{ m.icone("fechar", "icone--p") }}</a>{% endif %}
+      <details class="filtros-mais"{% if extras.n %} data-ativos="{{ extras.n }}"{% endif %}>
+        <summary class="botao botao--p">Filtros{% if extras.n %} <span class="filtros-mais__contador">{{ extras.n }}</span>{% endif %}</summary>
+        <div class="filtros-mais__painel">
+          {{ m.campo_select("tipo", "Tipo", TIPOS_COMPUTADOR|itens_dict, filtros, None, vazio="Todos") }}
+          {{ m.campo_select("sep", "SEP", (("ok", "OK"), ("pendente", "Pendente"), ("nao_instalado", "Não instalado"), ("sem_informacao", "Não informado")), filtros, None, vazio="Qualquer") }}
+          {% if setores %}{{ m.campo_select("setor", "Setor", setores|pares, filtros, None, vazio="Todos") }}{% endif %}
+          <div class="botoes botoes--fim">
+            {% if extras.n %}<a class="botao botao--fantasma botao--p" href="{{ url_com(tipo=None, sep=None, setor=None) }}">Limpar</a>{% endif %}
+            <button class="botao botao--primario botao--p" type="submit">Aplicar</button>
+          </div>
+        </div>
+      </details>
+    </div>
+    {% for oculto in ("unidade", "situacao", "atencao", "ordem") %}{% if request.args.get(oculto) %}<input type="hidden" name="{{ oculto }}" value="{{ request.args[oculto] }}">{% endif %}{% endfor %}
+    <button class="visualmente-oculto" type="submit" tabindex="-1">Buscar</button>
+  </form>
+
+  {% if pagina.itens %}
+  <div class="tabela-rolagem">
+    <table class="tabela tabela--cartoes">
+      <thead>
+        <tr>
+          <th>{{ m.ordenar("nome", "Máquina", ordem) }}</th>
+          <th>{{ m.ordenar("usuario", "Usuário", ordem) }}</th>
+          {% if rede %}<th>{{ m.ordenar("ip", "Rede", ordem) }}</th>{% endif %}
+          <th>Configuração</th>
+          <th>SEP</th>
+          <th>{{ m.ordenar("situacao", "Situação", ordem) }}</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for c in pagina %}
+        <tr>
+          <td><a class="titulo-celula" href="{{ url_for('computadores.detalhe', computador_id=c.id) }}">{{ c.nome }}</a><span class="sub">{{ TIPOS_COMPUTADOR[c.tipo] }}{% if todas %} · {{ c.unidade_nome }}{% endif %}</span></td>
+          <td data-celular="linha">
+            {% if c.usuario_nome or c.usuario_login %}{{ c.usuario_nome or c.usuario_login }}{{ m.selo_usuario(c.usuario_situacao) }}
+              {% set detalhe = [c.usuario_login if c.usuario_nome else none, c.setor]|select|join(" · ") %}{% if detalhe %}<span class="sub">{{ detalhe }}</span>{% endif %}
+            {% else %}<span class="discreto">Sem usuário</span>{% endif %}
+          </td>
+          {% if rede %}{% set ip, mac = c.ip or c.ip_wifi, c.mac or c.mac_wifi %}
+          <td class="num" data-celular="{{ 'linha' if ip or mac else 'oculto' }}">{% if ip %}{{ ip }}{% if mac %}<span class="sub">{{ mac }}</span>{% endif %}{% elif mac %}<span class="secundario">{{ mac }}</span>{% else %}<span class="discreto">—</span>{% endif %}</td>{% endif %}
+          <td data-celular="oculto">{{ [c.processador|processador_curto if c.processador else none, (c.memoria_gb ~ " GB") if c.memoria_gb else none]|select|join(" · ") or "—" }}{% if c.sistema %}<span class="sub">{{ c.sistema }}</span>{% endif %}</td>
+          <td data-celular="oculto">{{ m.selo_sep(c.sep) }}</td>
+          <td data-celular="direita">{{ m.selo_computador(c.situacao) }}{% if c.atencao %}<span class="sub sub--aviso">{{ c.atencao|join(" · ") }}</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ m.paginacao(pagina) }}
+  {% elif filtros.get("q") or extras.n or situacao or filtros.get("atencao") %}
+    {{ m.vazio("Nenhum computador encontrado", "Ajuste a busca ou os filtros.") }}
+  {% elif pode_cadastrar_computador() %}
+    <div class="vazio">
+      <p class="vazio__titulo">Nenhum computador{% if not todas %} nesta unidade{% endif %}</p>
+      <p>Cadastre um por um ou importe a planilha atual.</p>
+      <div class="botoes centro-flex">
+        <a class="botao" href="{{ url_for('computadores.importar', unidade_id=unidade) }}">{{ m.icone("planilha") }}Importar planilha</a>
+        <a class="botao botao--primario" href="{{ url_for('computadores.novo', unidade=unidade) }}">{{ m.icone("mais") }}Cadastrar computador</a>
+      </div>
+    </div>
+  {% else %}
+    {{ m.vazio("Nenhum computador cadastrado") }}
+  {% endif %}
+</section>
+{% endblock %}

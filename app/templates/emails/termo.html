@@ -1,0 +1,12 @@
+{% extends "emails/_base.html" %}
+{% block corpo %}
+<p style="margin:0 0 14px;font-size:20px;font-weight:700;">{% if lembrete %}O seu termo ainda aguarda assinatura{% else %}Termo de responsabilidade do seu celular corporativo{% endif %}</p>
+<p style="margin:0 0 14px;">Olá, {{ primeiro_nome }}.</p>
+<p style="margin:0 0 14px;">{% if lembrete %}Este é um lembrete: o{% else %}O{% endif %} termo de responsabilidade do aparelho <strong>{{ termo.marca }} {{ termo.modelo }}</strong> (IMEI final {{ termo.imei[-6:] }}) está pronto para você ler e assinar.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0;"><tr><td style="background:#172033;border-radius:8px;">
+  <a href="{{ link }}" target="_blank" style="display:inline-block;padding:13px 22px;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;">Ler e assinar o termo</a>
+</td></tr></table>
+<p style="margin:0 0 6px;font-size:13px;color:#475467;">O link é pessoal e vale até {{ expira_em }}. Para assinar, você vai confirmar o seu CPF{% if cfg("assinatura_exigir_codigo") == "1" %} e um código enviado para este e-mail{% endif %}.</p>
+<p style="margin:0 0 6px;font-size:13px;color:#475467;">Se o botão não funcionar, copie e cole no navegador:<br><span style="word-break:break-all;color:#1f4bb8;">{{ link }}</span></p>
+<p style="margin:16px 0 0;font-size:13px;color:#475467;">Termo nº {{ termo.codigo }}.{% if contato_ti %} Dúvidas: <a href="mailto:{{ contato_ti }}" style="color:#1f4bb8;">{{ contato_ti }}</a>.{% endif %}</p>
+{% endblock %}

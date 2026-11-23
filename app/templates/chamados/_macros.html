@@ -1,0 +1,12 @@
+{% import "_macros.html" as m %}
+{% macro situacao(s) -%}<span class="pilula pilula--{{ s }}">{{ SITUACOES_CHAMADO[s] }}</span>{%- endmacro %}
+{% macro prioridade(p) -%}<span class="pilula pilula--{{ p }}">{{ PRIORIDADES_CHAMADO[p] }}</span>{%- endmacro %}
+{# Prazo na fila: "atrasado 30 min", "vence em 1 h", "hoje, 17:12", "pausado" #}
+{% macro prazo(info) -%}<span class="prazo prazo--{{ info.estado }}">{{ info.curto }}</span>{%- endmacro %}
+{# Prazo no painel do atendimento: "hoje, 17:12 · faltam 3 h" #}
+{% macro prazo_completo(info) -%}
+<strong class="prazo prazo--{{ info.estado }}">{{ info.quando }}{% if info.detalhe and info.detalhe != info.quando %} <span>· {{ info.detalhe }}</span>{% endif %}</strong>
+{%- endmacro %}
+{% macro avatar(nome, ti) -%}
+<span class="ch-avatar{% if ti %} ch-avatar--ti{% endif %}" aria-hidden="true">{{ nome|iniciais }}</span>
+{%- endmacro %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% set titulo = "Editar colaborador" if colaborador else "Cadastrar colaborador" %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+{% if colaborador %}
+{{ m.cabecalho(titulo, voltar=url_for('colaboradores.detalhe', colaborador_id=colaborador.id), voltar_rotulo=colaborador.nome) }}
+{% else %}
+{{ m.cabecalho(titulo, voltar=url_for('colaboradores.lista'), voltar_rotulo="Colaboradores") }}
+{% endif %}
+
+<form class="painel formulario" method="post" novalidate>
+  {{ m.csrf() }}
+  <div class="painel__corpo">
+    <div class="grade-form">
+      {{ m.campo("nome", "Nome completo", form, erros, obrigatorio=True, largo=True, attrs='autocomplete="off"') }}
+      {{ m.campo("cpf", "CPF", form, erros, obrigatorio=True, attrs='inputmode="numeric" data-mascara="cpf" autocomplete="off" placeholder="000.000.000-00"', padrao="") }}
+      {{ m.campo("email", "E-mail corporativo", form, erros, tipo="email", obrigatorio=True, attrs='autocomplete="off"') }}
+      {{ m.campo("cargo", "Cargo", form, erros, obrigatorio=True, attrs='list="lista-cargos" autocomplete="off"') }}
+      {{ m.campo("departamento", "Departamento", form, erros, obrigatorio=True, attrs='list="lista-departamentos" autocomplete="off"') }}
+      {{ m.campo_select("unidade_id", "Unidade", unidades|opcoes, form, erros, obrigatorio=True) }}
+    </div>
+    {% call m.mais_campos(("matricula", "telefone", "observacoes"), form, erros) %}
+      {{ m.campo("matricula", "Matrícula", form, erros, attrs='autocomplete="off"') }}
+      {{ m.campo("telefone", "Telefone corporativo", form, erros, tipo="tel", attrs='data-mascara="telefone" autocomplete="off" placeholder="Se vazio, usa a linha do aparelho"') }}
+      {{ m.campo_texto("observacoes", "Observações", form, erros, linhas=2) }}
+    {% endcall %}
+    <datalist id="lista-cargos">{% for c in cargos %}<option value="{{ c }}">{% endfor %}</datalist>
+    <datalist id="lista-departamentos">{% for d in departamentos %}<option value="{{ d }}">{% endfor %}</datalist>
+
+    {% if not colaborador and (tem_disponiveis or aparelho_escolhido) %}
+    <div class="secao-form mt-20">
+      <h2>Entregar um aparelho agora (opcional)</h2>
+      <div class="grade-form">
+        {{ m.seletor("aparelho_id", "Aparelho", url_for('vinculos.opcoes_aparelhos'), aparelho_escolhido, erros,
+                     "Digite o modelo, o IMEI ou a linha", obrigatorio=False) }}
+        <div data-mostrar-quando="aparelho_id=*" class="campo campo--largo" hidden>
+          <label for="c-acessorios">Acessórios entregues</label>
+          <input id="c-acessorios" type="text" name="acessorios" value="{{ form.get('acessorios', '') }}" placeholder="Se vazio, usa os do cadastro do aparelho">
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="rodape-form">
+      <a class="botao botao--fantasma" href="{{ url_for('colaboradores.detalhe', colaborador_id=colaborador.id) if colaborador else url_for('colaboradores.lista') }}">Cancelar</a>
+      <button class="botao botao--primario" type="submit">{{ "Salvar" if colaborador else "Cadastrar colaborador" }}</button>
+    </div>
+  </div>
+</form>
+{% endblock %}

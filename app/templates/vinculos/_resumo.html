@@ -1,0 +1,16 @@
+{% import "_macros.html" as m %}
+<section class="painel">
+  <div class="painel__corpo">
+    <div class="responsavel">
+      <span class="avatar" aria-hidden="true">{{ m.iniciais(vinculo.colaborador_nome) }}</span>
+      <div>
+        <div class="responsavel__nome">{{ vinculo.colaborador_nome }}</div>
+        <div class="secundario"><a href="{{ url_for('aparelhos.detalhe', aparelho_id=vinculo.aparelho_id) }}">{{ vinculo.marca }} {{ vinculo.modelo }}</a> · IMEI {{ vinculo.imei }}</div>
+      </div>
+      <div class="responsavel__fim">
+        <div>Desde {{ vinculo.entregue_em|data }}</div>
+        {% if vinculo.estado_entrega %}<div class="pequeno discreto">Entregue {{ vinculo.estado_entrega|lower }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+</section>

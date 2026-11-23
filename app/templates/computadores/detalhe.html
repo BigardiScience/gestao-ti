@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}{{ c.nome }}{% endblock %}
+{% set notebook = c.tipo == "notebook" %}
+{% set tipos_ponto = {"conferencia": "ok", "desativacao": "perigo", "reativacao": "uso", "cadastro": "uso"} %}
+{% block conteudo %}
+{% call m.cabecalho("", voltar=url_for('computadores.lista', unidade=c.unidade_id), voltar_rotulo="Computadores") %}
+  {% if pode_editar %}
+    {% call m.mais_acoes() %}
+      <form method="post" action="{{ url_for('computadores.excluir', computador_id=c.id) }}"
+            data-confirmar="O cadastro e o histórico de {{ c.nome }} serão apagados. Para tirar de uso e manter o histórico, edite e mude a situação para Desativado."
+            data-confirmar-titulo="Excluir {{ c.nome }}?" data-confirmar-botao="Excluir" data-confirmar-perigo="1">
+        {{ m.csrf() }}<button class="perigo" type="submit">{{ m.icone("lixeira") }}Excluir cadastro</button></form>
+    {% endcall %}
+    {% if c.situacao != "desativado" %}
+    <form method="post" action="{{ url_for('computadores.conferir', computador_id=c.id) }}">{{ m.csrf() }}
+      <button class="botao" type="submit" title="Confirma que os dados batem com a máquina">{{ m.icone("ok-circulo") }}Marcar como conferido</button></form>
+    {% endif %}
+    <a class="botao botao--primario" href="{{ url_for('computadores.editar', computador_id=c.id) }}">{{ m.icone("editar") }}Editar</a>
+  {% endif %}
+{% endcall %}
+
+<section class="etiqueta" aria-label="Identificação do computador">
+  <div class="etiqueta__topo"><h1 class="etiqueta__modelo">{{ c.nome }}</h1>{{ m.selo_computador(c.situacao) }}</div>
+  {% if rede and (c.ip or c.ip_wifi) %}<div class="etiqueta__imei">{{ c.ip or c.ip_wifi }}</div>{% endif %}
+  <dl class="etiqueta__dados">
+    <div><dt>Tipo</dt><dd>{{ TIPOS_COMPUTADOR[c.tipo] }}{% if c.marca or c.modelo %} · {{ [c.marca, c.modelo]|select|join(" ") }}{% endif %}</dd></div>
+    <div><dt>Unidade</dt><dd>{{ c.unidade_nome }}</dd></div>
+    {% if c.patrimonio %}<div><dt>Patrimônio</dt><dd>{{ c.patrimonio }}</dd></div>{% endif %}
+  </dl>
+</section>
+
+{% if c.atencao %}
+<div class="aviso aviso--aviso mt-16">{{ m.icone("alerta") }}<div class="aviso__texto">
+  {% for motivo in c.atencao %}
+    {% if motivo == "SEP pendente" %}<div><strong>SEP pendente.</strong> Verifique o antivírus nesta máquina.</div>
+    {% elif motivo == "Sem SEP" %}<div><strong>Sem SEP.</strong> Instale o antivírus antes de manter a máquina na rede.</div>
+    {% elif motivo == "Usuário desligado" %}<div><strong>Usuário desligado.</strong> Recolha a máquina e mude a situação para Reserva.</div>
+    {% elif motivo == "Conferir" %}<div><strong>Conferência vencida.</strong> Confira os dados na máquina e marque como conferido.</div>{% endif %}
+  {% endfor %}
+</div></div>
+{% endif %}
+
+<div class="grade grade--lado mt-16">
+  <div class="pilha">
+    <section class="painel" aria-labelledby="t-usuario">
+      <div class="painel__cabecalho"><h2 id="t-usuario">Usuário</h2>{{ m.selo_usuario(c.usuario_situacao) }}</div>
+      <div class="painel__corpo">
+        {% if c.usuario_nome or c.usuario_login %}
+        <div class="responsavel">
+          <span class="avatar" aria-hidden="true">{{ m.iniciais(c.usuario_nome or c.usuario_login) }}</span>
+          <div>
+            <div class="responsavel__nome">{{ c.usuario_nome or c.usuario_login }}</div>
+            <div class="secundario">{{ [c.usuario_login if c.usuario_nome else none, c.setor]|select|join(" · ") or "Setor não informado" }}</div>
+          </div>
+        </div>
+        {% else %}
+        <p class="secundario">Sem usuário{% if c.setor %} · {{ c.setor }}{% endif %}.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    {% if rede %}
+    <section class="painel" aria-labelledby="t-rede">
+      <div class="painel__cabecalho"><h2 id="t-rede">Rede e acesso remoto</h2></div>
+      <div class="painel__corpo">
+        <dl class="dados">
+          <div><dt>{{ "IP (cabo)" if notebook else "IP" }}</dt><dd>{{ c.ip or "—" }}</dd></div>
+          <div><dt>{{ "MAC (cabo)" if notebook else "MAC" }}</dt><dd>{{ c.mac or "—" }}</dd></div>
+          {% if notebook %}
+          <div><dt>IP (Wi-Fi)</dt><dd>{{ c.ip_wifi or "—" }}</dd></div>
+          <div><dt>MAC (Wi-Fi)</dt><dd>{{ c.mac_wifi or "—" }}</dd></div>
+          {% endif %}
+          <div><dt>Acesso remoto</dt><dd>{% if c.remoto_ferramenta %}{{ c.remoto_ferramenta }}{% if c.remoto_id %} · <span class="forte">{{ c.remoto_id }}</span>{% endif %}{% else %}—{% endif %}</dd></div>
+        </dl>
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="painel" aria-labelledby="t-historico">
+      <div class="painel__cabecalho"><h2 id="t-historico">Histórico</h2></div>
+      <div class="painel__corpo">
+        <ul class="historico">
+        {% for h in historico %}
+          <li class="historico__item">
+            <span class="historico__ponto historico__ponto--{{ tipos_ponto.get(h.tipo, 'neutro') }}" aria-hidden="true"></span>
+            <div class="historico__corpo">{{ h.descricao }}
+              {% set mudancas = h.detalhes|fromjson if h.tipo == "alteracao" else none %}
+              {% if mudancas %}
+              <ul class="historico__mudancas">
+                {% for campo, par in mudancas.items() %}
+                <li>{{ campo }}: {% if campo in ROTULOS_REDE and not rede %}alterado{% else %}{{ par[0] if par[0] not in (none, "") else "vazio" }} → {{ par[1] if par[1] not in (none, "") else "vazio" }}{% endif %}</li>
+                {% endfor %}
+              </ul>
+              {% endif %}
+            </div>
+            <time class="historico__quando" datetime="{{ h.ocorrido_em }}" title="{{ h.ocorrido_em|datahora }}{% if h.usuario_nome %} por {{ h.usuario_nome }}{% endif %}">{{ h.ocorrido_em|quando }}</time>
+          </li>
+        {% endfor %}
+        </ul>
+      </div>
+    </section>
+    {% if eh_ti_chamados() %}{% with lista_chamados=chamados_equipamento %}{% include "chamados/_do_equipamento.html" %}{% endwith %}{% endif %}
+  </div>
+
+  <div class="pilha">
+    <section class="painel" aria-labelledby="t-config">
+      <div class="painel__cabecalho"><h2 id="t-config">Configuração</h2></div>
+      <div class="painel__corpo">
+        <dl class="dados dados--linhas">
+          <div><dt>Sistema</dt><dd>{{ c.sistema or "—" }}</dd></div>
+          <div><dt>Processador</dt><dd>{{ c.processador or "—" }}</dd></div>
+          <div><dt>Memória</dt><dd>{{ (c.memoria_gb ~ " GB") if c.memoria_gb else "—" }}</dd></div>
+          <div><dt>SEP</dt><dd>{{ m.selo_sep(c.sep) }}</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="painel" aria-labelledby="t-perifericos">
+      <div class="painel__cabecalho"><h2 id="t-perifericos">Periféricos</h2></div>
+      <div class="painel__corpo">
+        <dl class="dados dados--linhas">
+          <div><dt>Nobreak</dt><dd>{{ "—" if c.nobreak is none else ("Sim" if c.nobreak else "Não") }}</dd></div>
+          {% if not notebook or c.monitor %}<div><dt>Monitor</dt><dd>{{ c.monitor or "—" }}</dd></div>{% endif %}
+          <div><dt>Webcam</dt><dd>{{ "Sim" if c.webcam else "Não" }}</dd></div>
+          <div><dt>Headset</dt><dd>{{ "Sim" if c.headset else "Não" }}</dd></div>
+          {% if c.outros_perifericos %}<div><dt>Outros</dt><dd>{{ c.outros_perifericos }}</dd></div>{% endif %}
+        </dl>
+      </div>
+    </section>
+
+    {% if c.numero_serie or c.marca or c.modelo or c.softwares or c.observacoes %}
+    <section class="painel" aria-labelledby="t-mais">
+      <div class="painel__cabecalho"><h2 id="t-mais">Mais informações</h2></div>
+      <div class="painel__corpo">
+        <dl class="dados dados--linhas">
+          {% if c.marca or c.modelo %}<div><dt>Equipamento</dt><dd>{{ [c.marca, c.modelo]|select|join(" ") }}</dd></div>{% endif %}
+          {% if c.numero_serie %}<div><dt>Nº de série</dt><dd>{{ c.numero_serie }}</dd></div>{% endif %}
+          {% if c.softwares %}<div><dt>Softwares</dt><dd>{{ c.softwares }}</dd></div>{% endif %}
+        </dl>
+        {% if c.observacoes %}<p class="secundario mt-16 texto-quebras">{{ c.observacoes }}</p>{% endif %}
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="painel" aria-labelledby="t-conferencia">
+      <div class="painel__cabecalho"><h2 id="t-conferencia">{{ "Desativação" if c.situacao == "desativado" else "Conferência" }}</h2></div>
+      <div class="painel__corpo">
+        <dl class="dados dados--linhas">
+        {% if c.situacao == "desativado" %}
+          <div><dt>Desativado em</dt><dd>{{ c.desativado_em|data }}</dd></div>
+          <div><dt>Motivo</dt><dd>{{ c.desativacao_motivo }}</dd></div>
+          <div><dt>Disco</dt><dd>{{ c.destino_disco }}</dd></div>
+        {% else %}
+          <div><dt>Última</dt><dd>{% if c.conferido_em %}{{ c.conferido_em|data }}{% if c.conferido_por_nome %}<span class="sub discreto">{{ c.conferido_por_nome }}</span>{% endif %}{% else %}Nunca{% endif %}</dd></div>
+          <div><dt>Próxima até</dt><dd{% if "Conferir" in c.atencao %} class="texto-aviso"{% endif %}>{{ c.conferir_ate|data }}</dd></div>
+        {% endif %}
+          <div><dt>Cadastrado em</dt><dd>{{ c.criado_em|data }}</dd></div>
+        </dl>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

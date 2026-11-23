@@ -1,0 +1,18 @@
+{% extends "base_colaborador.html" %}
+{% block titulo %}Pedido enviado{% endblock %}
+{% block largura %} ped-conteudo--enviado{% endblock %}
+{% block conteudo %}
+<section class="enviado" aria-labelledby="t-enviado">
+  <div class="enviado__ok">{{ m.icone("ok") }}</div>
+  <h1 id="t-enviado">Pronto! Seu pedido foi enviado.</h1>
+  <div class="enviado__numero"><span>Número do pedido</span><strong>{{ chamado.id|numero_chamado }}</strong></div>
+  <p class="enviado__texto">A TI vai responder no seu e-mail e aqui, em “Meus pedidos”.</p>
+  {% if chamado.categoria == "seguranca" %}
+  <p class="ped-alerta ped-alerta--atencao">Enquanto isso, não clique em mais nada naquele e-mail ou site.</p>
+  {% endif %}
+  <div class="ped-botoes">
+    <a class="ped-botao ped-botao--principal ped-botao--grande" href="{{ url_for('pedidos.lista') }}">{{ m.icone("lista") }}Ver meus pedidos</a>
+    <a class="ped-botao ped-botao--grande" href="{{ url_for('pedidos.novo') }}">{{ m.icone("mais") }}Fazer outro pedido</a>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}{{ "Editar usuário" if registro else "Adicionar usuário" }}{% endblock %}
+{% set origem = registro.origem if registro else form.get("origem", "ad") %}
+{% block conteudo %}
+{% include "configuracoes/_abas.html" %}
+<div class="grade grade--lado">
+<form class="painel formulario" method="post" novalidate>
+  {{ m.csrf() }}
+  <div class="painel__cabecalho"><h2>{{ registro.nome if registro else "Adicionar usuário" }}</h2></div>
+  <div class="painel__corpo">
+    {% if not registro %}
+    <div class="campo campo--largo">
+      <span class="rotulo" id="rotulo-origem">Como entra</span>
+      <div class="escolhas" role="radiogroup" aria-labelledby="rotulo-origem">
+        <label class="escolha"><input type="radio" name="origem" value="ad"{% if origem == "ad" %} checked{% endif %}>
+          <span class="escolha__caixa"><strong>Usuário do Windows (AD)</strong><span>O normal. A senha é a mesma do computador.</span></span></label>
+        <label class="escolha"><input type="radio" name="origem" value="local"{% if origem == "local" %} checked{% endif %}>
+          <span class="escolha__caixa"><strong>Conta local</strong><span>Para o administrador de emergência ou para testar antes de ligar o AD.</span></span></label>
+      </div>
+    </div>
+    {% else %}
+    <p class="secundario">{% if registro.origem == "ad" %}Entra com o usuário do Windows <strong>{{ registro.login_ad }}</strong>.
+      {% if registro.ad_sincronizado_em %}Dados lidos do AD em {{ registro.ad_sincronizado_em|datahora }}{% if registro.setor %} · {{ registro.setor }}{% endif %}{% if registro.unidade_nome %} · {{ registro.unidade_nome }}{% endif %}.{% else %}Ainda não entrou: nome e e-mail serão atualizados pelo AD no primeiro acesso.{% endif %}
+      {% else %}Conta local: entra com <strong>{{ registro.login_ad or registro.email }}</strong> e a senha do sistema, sem passar pelo AD.{% endif %}</p>
+    {% endif %}
+    <div class="grade-form mt-16">
+      {{ m.campo("nome", "Nome", form, erros, obrigatorio=True) }}
+      <div class="campo{% if erros.login_ad %} campo--erro{% endif %}">
+        <label for="c-login_ad">Usuário</label>
+        <input id="c-login_ad" name="login_ad" value="{{ form.get('login_ad') or '' }}" autocomplete="off" autocapitalize="none" spellcheck="false"
+               placeholder="{{ 'teste.colaborador' if origem == 'local' else 'nome.sobrenome' }}" aria-describedby="ajuda-login_ad{% if erros.login_ad %} erro-login_ad{% endif %}"
+               {% if erros.login_ad %}aria-invalid="true"{% endif %}>
+        <span class="campo__ajuda" id="ajuda-login_ad">{% if registro and origem == "ad" %}O usuário do Windows.{% elif registro %}O que a pessoa digita para entrar.{% else %}No AD: o usuário do Windows (ex.: maria.silva). Na conta local: o que a pessoa vai digitar para entrar (ex.: teste.colaborador).{% endif %}</span>
+        {{ m.erro_campo(erros, "login_ad") }}
+      </div>
+      {{ m.campo("email", "E-mail", form, erros, tipo="email",
+                 ajuda=("Para receber os avisos dos pedidos. A conta de emergência entra por ele." if origem == "local" and registro
+                        else "Sem e-mail a pessoa não recebe os avisos por e-mail (respostas, chamados passados para ela). Quem entra pelo AD tem o e-mail lido do AD.")) }}
+      {% if not registro or origem == "local" %}
+      <div class="campo"{% if not registro %} data-mostrar-quando="origem=local"{% endif %}{% if origem != "local" %} hidden{% endif %}>
+        {% set opcoes_unidade = [] %}{% for u in unidades if u.ativo %}{% set _ = opcoes_unidade.append((u.id, u.nome)) %}{% endfor %}
+        {{ m.campo_select("unidade_id", "Unidade da pessoa", opcoes_unidade, form, erros, vazio="Selecione",
+                          ajuda="Obrigatória para colaborador: é para essa unidade que vão os pedidos dele.") }}
+      </div>
+      {% endif %}
+      <div class="campo campo--largo">
+        <span class="rotulo" id="rotulo-perfil">Perfil</span>
+        <div class="escolhas" role="radiogroup" aria-labelledby="rotulo-perfil">
+          <label class="escolha"><input type="radio" name="perfil" value="admin" {% if form.get('perfil') == 'admin' %}checked{% endif %}>
+            <span class="escolha__caixa"><strong>Administrador de TI</strong><span>Tudo, inclusive usuários e configurações</span></span></label>
+          <label class="escolha"><input type="radio" name="perfil" value="tecnico" {% if form.get('perfil') == 'tecnico' %}checked{% endif %}>
+            <span class="escolha__caixa"><strong>Técnico de TI</strong><span>Vê todas as unidades; atende e altera só as dele</span></span></label>
+          <label class="escolha"><input type="radio" name="perfil" value="consulta" {% if form.get('perfil') == 'consulta' %}checked{% endif %}>
+            <span class="escolha__caixa"><strong>Usuário de consulta</strong><span>Só visualiza o inventário; não vê chamados</span></span></label>
+          <label class="escolha"><input type="radio" name="perfil" value="colaborador" {% if form.get('perfil') == 'colaborador' %}checked{% endif %}>
+            <span class="escolha__caixa"><strong>Colaborador</strong><span>Só faz e acompanha os próprios pedidos</span></span></label>
+        </div>
+        {{ m.erro_campo(erros, "perfil") }}
+      </div>
+    </div>
+
+    <div data-mostrar-quando="perfil=tecnico" hidden class="pilha mt-16">
+      <span class="rotulo">Unidades que o técnico atende</span>
+      <div class="opcoes opcoes--linha">
+        {% for u in unidades %}
+        <label class="marcacao"><input type="checkbox" name="unidades_tecnico" value="{{ u.id }}" {% if u.id in tecnico_marcadas %}checked{% endif %}><span class="marcacao__texto">{{ u.nome }}</span></label>
+        {% endfor %}
+      </div>
+      <span class="campo__ajuda">Ex.: técnicos de Sorocaba atendem Sorocaba e Santos. Nas outras unidades o técnico só consulta.</span>
+      {{ m.erro_campo(erros, "unidades_tecnico") }}
+    </div>
+
+    <div data-mostrar-quando="perfil=consulta" hidden class="pilha mt-16">
+      <div class="opcoes opcoes--linha" role="radiogroup" aria-label="Unidades que pode ver">
+        <label class="marcacao"><input type="radio" name="acesso" value="todas" {% if form.get('acesso', 'todas') != 'selecionadas' %}checked{% endif %}><span class="marcacao__texto">Todas as unidades</span></label>
+        <label class="marcacao"><input type="radio" name="acesso" value="selecionadas" {% if form.get('acesso') == 'selecionadas' %}checked{% endif %}><span class="marcacao__texto">Só as selecionadas</span></label>
+      </div>
+      <div data-mostrar-quando="acesso=selecionadas" hidden class="opcoes opcoes--linha">
+        {% for u in unidades %}
+        <label class="marcacao"><input type="checkbox" name="unidades" value="{{ u.id }}" {% if u.id in unidades_marcadas %}checked{% endif %}><span class="marcacao__texto">{{ u.nome }}</span></label>
+        {% endfor %}
+      </div>
+      {{ m.erro_campo(erros, "unidades") }}
+    </div>
+    {% if registro %}
+    <div class="mt-16">{{ m.marcacao("ativo", "Usuário ativo", form, "Desativado, não entra mais (nem pelo AD); o histórico continua.") }}</div>
+    {% else %}
+    <p class="pequeno discreto mt-16" data-mostrar-quando="origem=local"{% if origem != "local" %} hidden{% endif %}>A senha temporária aparece uma única vez depois de salvar. No primeiro acesso, a pessoa cria a própria senha.</p>
+    {% endif %}
+    <div class="rodape-form">
+      <a class="botao botao--fantasma" href="{{ url_for('configuracoes.usuarios') }}">Cancelar</a>
+      <button class="botao botao--primario" type="submit">{{ "Salvar" if registro else "Adicionar" }}</button>
+    </div>
+  </div>
+</form>
+
+{% if registro and (registro.perfil == "tecnico" or registro.origem == "local") %}
+<div class="pilha">
+{% if registro.perfil == "tecnico" %}
+<aside class="painel" id="cobertura" aria-labelledby="t-cobertura">
+  <div class="painel__cabecalho"><h2 id="t-cobertura">Cobertura de férias</h2></div>
+  <div class="painel__corpo">
+    <p class="pequeno secundario">Libera outra unidade por um período. O acesso termina sozinho e tudo fica na revisão de acessos.</p>
+    {% if registro.coberturas %}
+    <ul class="pendencias">
+      {% for c in registro.coberturas %}
+      <li class="pendencia"><span class="pendencia__texto">{{ c.nome }}<small>até {{ c.expira_em|datahora }}{% if c.criado_por_nome %} · liberada por {{ c.criado_por_nome }}{% endif %}</small></span>
+        <form method="post" action="{{ url_for('configuracoes.cobertura_encerrar', usuario_id=registro.id, unidade_id=c.unidade_id) }}">{{ m.csrf() }}
+          <button class="botao botao--p" type="submit">Encerrar</button></form></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <form class="pilha mt-16" method="post" action="{{ url_for('configuracoes.cobertura_liberar', usuario_id=registro.id) }}" novalidate>
+      {{ m.csrf() }}
+      {% set opcoes_cobertura = [] %}
+      {% for u in unidades if u.ativo and u.id not in registro.unidades %}{% set _ = opcoes_cobertura.append((u.id, u.nome)) %}{% endfor %}
+      {{ m.campo_select("unidade_id", "Unidade", opcoes_cobertura, {}, None) }}
+      {{ m.campo("ate", "Até (inclusive)", {}, None, tipo="date") }}
+      <button class="botao botao--p" type="submit">Liberar cobertura</button>
+    </form>
+  </div>
+</aside>
+{% endif %}
+{% if registro.origem == "local" %}
+<section class="painel" aria-labelledby="t-senha">
+  <div class="painel__cabecalho"><h2 id="t-senha">Senha</h2></div>
+  <div class="painel__corpo">
+    <p class="pequeno secundario">Gera uma senha temporária nova e encerra as sessões abertas. A pessoa cria a própria senha no próximo acesso.</p>
+    <form method="post" action="{{ url_for('configuracoes.usuario_senha', usuario_id=registro.id) }}"
+          data-confirmar="Uma nova senha temporária será gerada e as sessões abertas de {{ registro.nome }} serão encerradas." data-confirmar-titulo="Redefinir senha?" data-confirmar-botao="Redefinir">
+      {{ m.csrf() }}<button class="botao botao--p" type="submit">{{ m.icone("chave", "icone--p") }}Redefinir senha</button></form>
+  </div>
+</section>
+{% endif %}
+</div>
+{% endif %}
+</div>
+{% endblock %}

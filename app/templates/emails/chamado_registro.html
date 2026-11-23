@@ -1,0 +1,28 @@
+{% extends "emails/_base.html" %}
+{% set empresa = nome_empresa() %}
+{% block selo %}Segurança da informação{% endblock %}
+{% block corpo %}
+<p style="margin:0 0 12px;font-size:20px;font-weight:700;">Registro de incidente – chamado nº {{ c.id|numero_chamado }}</p>
+<p style="margin:0 0 14px;">Registro completo enviado pela TI para avaliação do encarregado (DPO). Se houver risco ou dano relevante aos titulares,
+  a comunicação à ANPD deve ser feita em até 3 dias úteis (Resolução CD/ANPD nº 15/2024): <strong>até {{ prazo_anpd|data }}</strong>.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;font-size:14px;">
+  {% for rotulo, valor in (("Unidade", c.unidade_nome), ("Solicitante", c.solicitante_nome ~ (" (" ~ c.solicitante_setor ~ ")" if c.solicitante_setor else "")),
+                           ("Aberto em", c.criado_em|datahora), ("Quando a TI soube", c.seg_conhecido_em|datahora or "não informado"),
+                           ("Dado pessoal envolvido", {"sim": "Sim", "nao": "Não", "nao_sei": "Ainda não se sabe"}.get(c.seg_dados_pessoais, "não informado")),
+                           ("Situação", SITUACOES[c.situacao]), ("Responsável", c.responsavel_nome or "ninguém")) %}
+  <tr><td style="padding:2px 14px 2px 0;color:#667085;white-space:nowrap;vertical-align:top;">{{ rotulo }}</td><td style="padding:2px 0;">{{ valor }}</td></tr>
+  {% endfor %}
+</table>
+<p style="margin:0 0 6px;font-weight:700;">O que foi feito</p>
+<div style="margin:0 0 16px;padding:10px 12px;background:#f8f9fb;border-radius:4px;white-space:pre-wrap;">{{ c.seg_acoes or "Ainda não registrado." }}</div>
+<p style="margin:0 0 6px;font-weight:700;">Histórico completo</p>
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="font-size:13.5px;border-collapse:collapse;">
+  {% for msg in mensagens %}
+  <tr><td style="padding:8px 0;border-top:1px solid #e3e7ed;vertical-align:top;white-space:nowrap;color:#667085;">{{ msg.criado_em|datahora }}</td>
+    <td style="padding:8px 0 8px 12px;border-top:1px solid #e3e7ed;vertical-align:top;">
+      <strong>{{ msg.autor_nome or "Sistema" }}</strong> <span style="color:#667085;">{{ {"mensagem": "solicitante", "resposta": "resposta da TI", "nota": "nota interna", "evento": "registro"}[msg.tipo] }}</span><br>
+      <span style="white-space:pre-wrap;">{{ msg.texto }}</span>{% if msg.anexos %}<br><span style="color:#667085;">Anexos no sistema: {{ msg.anexos|map(attribute="nome")|join(", ") }}</span>{% endif %}</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}
+{% block rodape %}Documento confidencial de {{ empresa }}: registro de incidente de segurança da informação. Não encaminhe fora do comitê responsável.{% endblock %}

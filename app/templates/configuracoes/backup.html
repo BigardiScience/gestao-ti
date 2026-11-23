@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Backup{% endblock %}
+{% block conteudo %}
+{% include "configuracoes/_abas.html" %}
+<div class="grade grade--lado">
+  <section class="painel" aria-labelledby="t-backups">
+    <div class="painel__cabecalho">
+      <h2 id="t-backups">Backups</h2>
+      <form method="post" action="{{ url_for('configuracoes.backup_gerar') }}">{{ m.csrf() }}<button class="botao botao--primario botao--p" type="submit">{{ m.icone("caixa", "icone--p") }}Gerar agora</button></form>
+    </div>
+    {% if backups %}
+    <ul class="pendencias">
+      {% for b in backups %}
+      <li class="pendencia">
+        <span class="pendencia__texto">{{ b.data|data }} {{ b.hora }}<small>{{ b.nome }} · {{ b.tamanho|tamanho_arquivo }}</small></span>
+        <a class="botao botao--p" href="{{ url_for('configuracoes.backup_baixar', nome=b.nome) }}">{{ m.icone("baixar", "icone--p") }}Baixar</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}{{ m.vazio("Nenhum backup ainda") }}{% endif %}
+  </section>
+
+  <div class="pilha">
+    <form class="painel" method="post" novalidate aria-labelledby="t-auto">
+      {{ m.csrf() }}
+      <div class="painel__cabecalho"><h2 id="t-auto">Backup automático</h2></div>
+      <div class="painel__corpo pilha">
+        {{ m.marcacao("backup_ativo", "Todos os dias", form) }}
+        <div class="grade-form">
+          {{ m.campo("backup_hora", "Horário", form, erros, tipo="time") }}
+          {{ m.campo("backup_retencao", "Guardar os últimos", form, erros, tipo="number", attrs='min="1" max="365"') }}
+        </div>
+        {% if tarefa.ultima_execucao %}<p class="pequeno discreto">Último: {{ tarefa.ultima_execucao|quando }}.</p>{% endif %}
+        <button class="botao" type="submit">Salvar</button>
+      </div>
+    </form>
+    <p class="pequeno discreto">Cada backup traz o banco, os PDFs assinados e o logotipo, e fica em <code class="quebra">{{ pasta }}/backups</code>. Copie-os para outro lugar e guarde à parte o <code>chave-mestra.key</code>, que não entra no backup.</p>
+  </div>
+</div>
+{% endblock %}

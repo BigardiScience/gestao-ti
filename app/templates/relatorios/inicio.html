@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Relatórios{% endblock %}
+{% block conteudo %}
+{{ m.cabecalho("Relatórios") }}
+{% if eh_ti_chamados() %}
+<p class="aviso aviso--info">{{ m.icone("relatorio") }}<span class="aviso__texto">Chamados resolvidos dentro e fora do prazo, por mês:
+  <a href="{{ url_for('chamados.relatorio') }}">abrir o relatório de chamados</a>.</span></p>
+{% endif %}
+
+<form method="get" action="{{ url_for('relatorios.inicio') }}" class="painel">
+  <div class="painel__corpo">
+    <div class="grade-form grade-form--3">
+      <div class="campo">
+        <label for="c-tipo">Relatório</label>
+        <select id="c-tipo" name="tipo" data-enviar-ao-mudar aria-describedby="ajuda-tipo">
+          {% for chave, r in relatorios.items() %}<option value="{{ chave }}" {% if chave == tipo %}selected{% endif %}>{{ r.titulo }}</option>{% endfor %}
+        </select>
+        <span class="campo__ajuda" id="ajuda-tipo">{{ relatorio.descricao }}</span>
+      </div>
+      {% for f in relatorio.filtros %}
+        {% if f == "unidade" %}
+          {{ m.campo_select("unidade", "Unidade", unidades|opcoes, filtros, {}, vazio="Todas") }}
+        {% elif f == "marca" %}
+          {{ m.campo_select("marca", "Marca", marcas|pares, filtros, {}, vazio="Todas") }}
+        {% elif f == "modelo" %}
+          {{ m.campo("modelo", "Modelo", filtros, {}, attrs='placeholder="Parte do nome, ex.: A54"') }}
+        {% elif f == "status" %}
+          {{ m.campo_select("status", "Status do aparelho", [("ativos", "Ativos (sem baixados)")] + status_aparelho|itens_dict, filtros, {}, vazio="Todos") }}
+        {% elif f == "colaborador" %}
+          {{ m.campo("colaborador", "Colaborador", filtros, {}, attrs='placeholder="Parte do nome"') }}
+        {% elif f == "departamento" %}
+          {{ m.campo_select("departamento", "Departamento", departamentos|pares, filtros, {}, vazio="Todos") }}
+        {% elif f == "termo" %}
+          {{ m.campo_select("termo", "Status do termo", status_termo|itens_dict, filtros, {}, vazio="Qualquer") }}
+        {% elif f == "tipo_mov" %}
+          {{ m.campo_select("tipo_mov", "Tipo de movimentação", grupos|itens_dict, filtros, {}, vazio="Todos") }}
+        {% elif f == "situacao" %}
+          {{ m.campo_select("situacao", "Situação", [("ativo", "Ativos"), ("desligado", "Desligados")], filtros, {}, vazio="Todos") }}
+        {% elif f == "de" %}
+          {{ m.campo("de", "De", filtros, {}, tipo="date", ajuda=("Pela " ~ relatorio.periodo ~ ".") if relatorio.periodo else none) }}
+        {% elif f == "ate" %}
+          {{ m.campo("ate", "Até", filtros, {}, tipo="date") }}
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <details class="mais-campos"{% if request.args.getlist("colunas") %} open{% endif %}>
+      <summary>Colunas <span class="discreto">({{ escolhidas|length }} de {{ colunas|length }})</span></summary>
+      <div class="botoes mt-10">
+        <button class="botao botao--p botao--fantasma" type="button" data-marcar-colunas="todas">Marcar todas</button>
+        <button class="botao botao--p botao--fantasma" type="button" data-marcar-colunas="nenhuma">Desmarcar todas</button>
+      </div>
+      <div class="opcoes opcoes--linha mt-10">
+        {% for c in colunas %}
+        <label class="marcacao"><input type="checkbox" name="colunas" value="{{ c.chave }}" {% if c.chave in escolhidas %}checked{% endif %}>
+          <span class="marcacao__texto">{{ c.titulo }}{% if c.sensivel %}<small>dado pessoal</small>{% endif %}</span></label>
+        {% endfor %}
+      </div>
+      {% if not eh_admin() %}<p class="pequeno discreto mt-10">Dados pessoais, como CPF, são exportados só pelo administrador.</p>{% endif %}
+    </details>
+
+    <div class="rodape-form">
+      <button class="botao" type="submit" name="previa" value="1">{{ m.icone("olho") }}Pré-visualizar</button>
+      <button class="botao botao--primario" type="submit" formaction="{{ url_for('relatorios.exportar') }}">{{ m.icone("baixar") }}Exportar Excel</button>
+    </div>
+  </div>
+</form>
+
+{% if previa %}
+<section class="painel mt-16" aria-labelledby="t-previa">
+  <div class="painel__cabecalho"><h2 id="t-previa">Prévia</h2>
+    <span class="pequeno discreto">{% if previa.total > previa.linhas|length %}{{ previa.linhas|length }} de {{ previa.total|milhar }} linhas{% else %}{{ plural(previa.total, "linha") }}{% endif %}</span></div>
+  {% if previa.linhas %}
+  <div class="tabela-rolagem">
+    <table class="tabela tabela--compacta tabela--previa">
+      <thead><tr>{% for c in previa.colunas %}<th>{{ c.titulo }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for linha in previa.linhas %}<tr>{% for valor in linha %}<td>{{ valor }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  {% else %}{{ m.vazio("Nenhum registro com esses filtros") }}{% endif %}
+</section>
+{% endif %}
+{% endblock %}

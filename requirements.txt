@@ -1,0 +1,10 @@
+# Plataforma de Gestão de Celulares Corporativos
+# Instale com:  pip install -r requirements.txt
+Flask>=3.0,<4
+openpyxl>=3.1,<4
+reportlab>=4.0
+requests>=2.31,<3
+cryptography>=42
+Pillow>=10
+waitress>=3.0,<4
+tzdata>=2024.1          # fusos horários no Windows

@@ -1,0 +1,58 @@
+{% extends "base_colaborador.html" %}
+{% from "pedidos/_selo.html" import selo %}
+{% import "pedidos/_mensagem.html" as msgs with context %}
+{% block titulo %}Pedido {{ chamado.id|numero_chamado }}{% endblock %}
+{% block largura %} ped-conteudo--estreito{% endblock %}
+{% block conteudo %}
+<a class="voltar-link" href="{{ url_for('pedidos.lista') }}">{{ m.icone("voltar") }}Meus pedidos</a>
+<div class="pedido-topo">
+  {{ selo(chamado.situacao) }}
+  <h1>{{ chamado.assunto }}</h1>
+  <p class="pedido__meta">Pedido {{ chamado.id|numero_chamado }} · {{ CATEGORIAS_CHAMADO[chamado.categoria][1] }} · aberto {{ chamado.criado_em|quando_frase }}</p>
+</div>
+{% if chamado.situacao == "aguardando" %}
+<div class="ped-alerta ped-alerta--atencao" role="status">{{ m.icone("pergunta") }}<div><strong>A TI precisa de uma resposta sua.</strong> Leia a última mensagem e responda logo abaixo.</div></div>
+{% endif %}
+
+<p class="ped-alerta ped-alerta--atencao" data-situacao-mudou hidden role="status">{{ m.icone("atualizar") }}<span>A situação do seu pedido mudou. <a href="{{ url_for('pedidos.detalhe', chamado_id=chamado.id) }}?atualizado=1">Atualizar a página</a></span></p>
+<ol class="conversa-ped" id="conversa" aria-label="Conversa com a TI" aria-live="polite" data-conversa-ao-vivo
+    data-url="{{ url_for('pedidos.novidades', chamado_id=chamado.id) }}" data-ultima="{{ mensagens[-1].id if mensagens else 0 }}"
+    data-situacao="{{ chamado.situacao }}">
+  {% for msg in mensagens %}
+  {{ msgs.item(msg, usuario) }}
+  {% endfor %}
+</ol>
+
+{% if chamado.situacao in ("novo", "atendimento", "aguardando") %}
+<form class="ped-cartao" id="responder" method="post" action="{{ url_for('pedidos.responder', chamado_id=chamado.id) }}" enctype="multipart/form-data">
+  {{ m.csrf() }}
+  <div class="ped-campo">
+    <label class="ped-rotulo" for="texto">{{ "Sua resposta" if chamado.situacao == "aguardando" else "Quer contar mais alguma coisa para a TI?" }}</label>
+    <textarea class="ped-texto" id="texto" name="texto" rows="4" maxlength="6000" required aria-describedby="aviso-senha"></textarea>
+    <p class="ped-aviso-senha" id="aviso-senha">{{ m.icone("cadeado") }}Não escreva senhas aqui. A TI nunca pede a sua senha.</p>
+  </div>
+  <div class="anexo">
+    <span class="ped-rotulo" id="rotulo-anexo">Foto ou print <span class="ped-opcional">(se quiser)</span></span>
+    <label class="anexo__botao" for="anexo">{{ m.icone("clipe") }}<span data-anexo-nome>Anexar foto ou print</span></label>
+    <input class="anexo__entrada" type="file" id="anexo" name="anexo" accept="image/*,application/pdf" data-anexo>
+  </div>
+  <button class="ped-botao ped-botao--principal ped-botao--grande" type="submit">{{ m.icone("enviar") }}Enviar para a TI</button>
+</form>
+{% elif chamado.situacao == "resolvido" and pode_reabrir %}
+<form class="ped-cartao" id="reabrir" method="post" action="{{ url_for('pedidos.responder', chamado_id=chamado.id) }}">
+  {{ m.csrf() }}
+  <h2 class="ped-rotulo">Ainda com problema? Avise a TI</h2>
+  <p class="ped-ajuda">Se estiver tudo certo, não precisa fazer nada: o pedido será encerrado sozinho em {{ dias_reabrir }} {{ "dia útil" if dias_reabrir == 1 else "dias úteis" }}.</p>
+  <div class="ped-campo">
+    <label class="ped-rotulo" for="texto-reabrir">O que continua acontecendo?</label>
+    <textarea class="ped-texto" id="texto-reabrir" name="texto" rows="3" maxlength="6000"></textarea>
+  </div>
+  <button class="ped-botao ped-botao--principal ped-botao--grande" type="submit">{{ m.icone("atualizar") }}Avisar a TI</button>
+</form>
+{% else %}
+<div class="ped-cartao">
+  <p>{{ "Este pedido foi resolvido." if chamado.situacao == "resolvido" else "Este pedido foi encerrado." }} Se precisar de ajuda de novo, faça um novo pedido.</p>
+  <a class="ped-botao ped-botao--principal" href="{{ url_for('pedidos.novo') }}">{{ m.icone("mais") }}Fazer novo pedido</a>
+</div>
+{% endif %}
+{% endblock %}

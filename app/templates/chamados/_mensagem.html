@@ -1,0 +1,40 @@
+{% import "_macros.html" as m %}
+{% import "chamados/_macros.html" as ch %}
+{# Uma mensagem da conversa do chamado (tela da TI). Usada na página e na atualização em tempo real. #}
+{% macro item(msg, chamado, equipamento, primeira=False, nova=False) -%}
+      {% if msg.tipo == "evento" %}
+      <li class="conversa__evento"><span>{{ msg.texto }}</span><time datetime="{{ msg.criado_em }}" title="{{ msg.criado_em|datahora }}">{{ msg.criado_em|dia_hora }}</time></li>
+      {% else %}
+      {% set da_ti = msg.tipo in ("resposta", "nota") or msg.autor_perfil in ("admin", "tecnico", "consulta") %}
+            <li class="msg msg--{{ msg.tipo }}{% if nova %} msg--nova{% endif %}"{% if nova %} id="nova"{% endif %}>
+        {{ ch.avatar(msg.autor_nome or "Sistema", da_ti) }}
+        <div class="msg__caixa">
+          <div class="msg__cabeca">
+            <strong>{{ msg.autor_nome or "Sistema" }}</strong>
+            <span class="msg__meta">{% if da_ti %}TI{% elif msg.autor_id == chamado.solicitante_id and chamado.solicitante_setor %}{{ chamado.solicitante_setor }}{% elif msg.autor_setor %}{{ msg.autor_setor }}{% else %}Solicitante{% endif %} · <time datetime="{{ msg.criado_em }}" title="{{ msg.criado_em|datahora }}">{{ msg.criado_em|dia_hora }}</time></span>
+            {% if msg.tipo == "nota" %}<span class="msg__nota">{{ m.icone("cadeado", "icone--p") }}Nota interna · só a TI vê</span>{% endif %}
+            {% if nova %}<span class="pilula pilula--atendimento">Nova</span>{% endif %}
+          </div>
+          <div class="msg__texto texto-quebras">{{ msg.texto }}</div>
+          {% if primeira and msg.tipo == "mensagem" %}
+          {% set pc = equipamento.computador %}
+          <p class="msg__resumo">
+            {%- if chamado.impacto %}Isso está impedindo o trabalho: <strong>{{ IMPACTOS[chamado.impacto][0] }}</strong>{% endif %}
+            {%- if pc or equipamento.aparelho or chamado.equipamento_texto %}{% if chamado.impacto %} · {% endif %}
+              {%- if pc %}Computador: {{ "este" if chamado.origem_computador_id == pc.id else "outro" }} ({{ pc.nome }})
+              {%- elif equipamento.aparelho %}Celular: {{ equipamento.aparelho.marca }} {{ equipamento.aparelho.modelo }}
+              {%- else %}{{ chamado.equipamento_texto|trim(".") }}{% endif %}
+            {%- endif %}</p>
+          {% endif %}
+          {% if msg.anexos %}
+          <div class="msg__anexos">
+            {% for a in msg.anexos %}
+            <a class="msg__anexo" href="{{ url_for('chamados.anexo', anexo_id=a.id) }}" target="_blank" rel="noopener" title="{{ a.nome }} ({{ a.tamanho|tamanho_arquivo }})">
+              {{- m.icone("imagem" if a.tipo.startswith("image/") else "clipe", "icone--p") }}<span>{{ a.nome }}</span></a>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+      </li>
+      {% endif %}
+{%- endmacro %}

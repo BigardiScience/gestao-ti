@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Modelo do termo{% endblock %}
+{% block conteudo %}
+{% include "configuracoes/_abas.html" %}
+<div class="grade grade--lado">
+  <form class="painel" method="post" novalidate>
+    {{ m.csrf() }}
+    <div class="painel__corpo">
+      <div class="grade-form">
+        {{ m.campo("termo_titulo", "Título", form, erros, obrigatorio=True, largo=True) }}
+        {{ m.campo_texto("termo_texto", "Declaração e condições de uso", form, erros, obrigatorio=True, linhas=22, classe="texto-termo",
+                         ajuda="Os dados do colaborador e do aparelho entram sozinhos no início. Parágrafos separados por linha em branco; **texto** fica em negrito. Vale para os próximos termos.") }}
+        {{ m.campo_texto("aviso_privacidade", "Aviso de privacidade (página de assinatura)", form, erros, linhas=3) }}
+      </div>
+      <div class="rodape-form">
+        <button class="botao botao--fantasma" type="submit" name="acao" value="restaurar" formnovalidate>Restaurar padrão</button>
+        <button class="botao" type="submit" name="acao" value="previa" formtarget="_blank">{{ m.icone("olho") }}Prévia em PDF</button>
+        <button class="botao botao--primario" type="submit" name="acao" value="salvar">Salvar</button>
+      </div>
+    </div>
+  </form>
+  <aside class="painel" aria-labelledby="t-campos">
+    <div class="painel__cabecalho"><h2 id="t-campos">Campos automáticos</h2></div>
+    <div class="painel__corpo">
+      <dl class="dados dados--1">
+        {% for chave, rotulo in campos.items() %}
+        <div><dt>{{ rotulo }}</dt><dd><code>{{ "{{" }}{{ chave }}{{ "}}" }}</code></dd></div>
+        {% endfor %}
+      </dl>
+      <p class="pequeno discreto mt-16">Revise o texto com o RH ou o jurídico antes de usar.</p>
+    </div>
+  </aside>
+</div>
+{% endblock %}

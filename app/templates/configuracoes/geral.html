@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Configurações{% endblock %}
+{% block conteudo %}
+{% include "configuracoes/_abas.html" %}
+<form class="painel formulario" method="post" enctype="multipart/form-data" novalidate>
+  {{ m.csrf() }}
+  <div class="painel__corpo">
+    <div class="secao-form">
+      <h2>Empresa</h2>
+      <div class="grade-form">
+        {{ m.campo("empresa_nome", "Nome da empresa", form, erros, obrigatorio=True) }}
+        {{ m.campo("empresa_cnpj", "CNPJ", form, erros) }}
+        {{ m.campo("empresa_cidade", "Cidade padrão do termo", form, erros) }}
+        {{ m.campo("ti_email_contato", "E-mail de contato do TI", form, erros, tipo="email") }}
+        <div class="campo campo--largo{% if erros.get('logo') %} campo--erro{% endif %}">
+          <label for="c-logo">Logotipo (PNG ou JPG, até 2 MB)</label>
+          {% if cfg("logo_arquivo") %}<img src="{{ url_for('assinatura.logo') }}" alt="Logotipo atual" class="documento__logo">{% endif %}
+          <input id="c-logo" class="entrada" type="file" name="logo" accept="image/png,image/jpeg">
+          {{ m.erro_campo(erros, "logo") }}
+          {% if cfg("logo_arquivo") %}{{ m.marcacao("remover_logo", "Remover o logotipo atual", {}) }}{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="secao-form">
+      <h2>Endereço do sistema</h2>
+      <div class="grade-form">
+        {{ m.campo("url_base", "Endereço (URL)", form, erros, tipo="url", obrigatorio=True, largo=True,
+                   ajuda="Usado nos links de assinatura. Precisa abrir no celular do colaborador.", attrs='placeholder="https://celulares.empresa.com.br"') }}
+        {{ m.campo_select("fuso_horario", "Fuso horário", fusos|itens_dict, form, erros, vazio=None) }}
+      </div>
+    </div>
+
+    <div class="secao-form">
+      <h2>Regras</h2>
+      <div class="grade-form">
+        {{ m.campo("limite_aparelhos_colaborador", "Aparelhos por colaborador (0 = sem limite)", form, erros, tipo="number", attrs='min="0" max="50"') }}
+        {{ m.campo("link_validade_dias", "Validade do link de assinatura (dias)", form, erros, tipo="number", attrs='min="1" max="60"') }}
+        {{ m.campo("dias_aparelho_parado", "Aparelho parado vira pendência após (dias)", form, erros, tipo="number", attrs='min="1" max="365"') }}
+        <div class="campo campo--largo">
+          {{ m.marcacao("assinatura_exigir_codigo", "Exigir código enviado por e-mail na assinatura", form, "Reforça a prova de autoria, além do CPF.") }}
+        </div>
+      </div>
+    </div>
+    <div class="rodape-form"><button class="botao botao--primario" type="submit">Salvar</button></div>
+  </div>
+</form>
+<p class="pequeno discreto mt-16">Versão {{ versao }}</p>
+{% endblock %}

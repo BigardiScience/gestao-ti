@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Transferir aparelho{% endblock %}
+{% block conteudo %}
+{{ m.cabecalho("Transferir aparelho", voltar=url_for('aparelhos.detalhe', aparelho_id=vinculo.aparelho_id), voltar_rotulo=vinculo.marca ~ " " ~ vinculo.modelo) }}
+<div class="formulario pilha">
+  {% include "vinculos/_resumo.html" %}
+  <form class="painel" method="post" novalidate>
+    {{ m.csrf() }}
+    <div class="painel__corpo">
+      <div class="grade-form">
+        {{ m.seletor("colaborador_id", "Novo responsável", url_for('vinculos.opcoes_colaboradores', excluir=vinculo.colaborador_id),
+                     colaborador_escolhido, erros, "Digite o nome, o departamento ou a unidade") }}
+        {{ m.campo("entregue_em", "Data e hora da transferência", form, erros, tipo="datetime-local", obrigatorio=True) }}
+        {{ m.campo_select("estado", "Estado de conservação", estados|pares, form, erros, obrigatorio=True) }}
+      </div>
+      {% call m.mais_campos(("acessorios", "observacoes"), form, erros) %}
+        {{ m.campo("acessorios", "Acessórios entregues", form, erros, largo=True) }}
+        {{ m.campo_texto("observacoes", "Observações", form, erros, linhas=2) }}
+      {% endcall %}
+      <div class="opcoes mt-20">
+        {{ m.marcacao("gerar_termo", "Gerar o termo para o novo responsável", form, padrao=True) }}
+        {{ m.marcacao("enviar_agora", "Enviar o termo por e-mail agora, sem revisar", form) }}
+      </div>
+      <div class="rodape-form">
+        <a class="botao botao--fantasma" href="{{ url_for('aparelhos.detalhe', aparelho_id=vinculo.aparelho_id) }}">Cancelar</a>
+        <button class="botao botao--primario" type="submit">{{ m.icone("movimento") }}Transferir</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

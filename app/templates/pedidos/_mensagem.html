@@ -1,0 +1,24 @@
+{% import "_macros.html" as m %}
+{# Uma mensagem da conversa do pedido (tela do colaborador). Usada na página e na atualização em tempo real. #}
+{% macro item(msg, usuario) -%}
+  {% if msg.tipo == "evento" %}
+  <li class="evento-ped">{{ msg.texto }}<time datetime="{{ msg.criado_em }}">{{ msg.criado_em|quando_frase }}</time></li>
+  {% else %}
+  <li class="msg-ped{% if msg.tipo == 'resposta' %} msg-ped--ti{% endif %}">
+    <div class="msg-ped__cabeca">
+      <strong>{% if msg.autor_id == usuario.id %}Você{% elif msg.tipo == "resposta" %}{{ msg.autor_nome }} (TI){% else %}{{ msg.autor_nome }}{% endif %}</strong>
+      <time datetime="{{ msg.criado_em }}">{{ msg.criado_em|quando_frase }}</time>
+    </div>
+    <div class="texto-quebras">{{ msg.texto }}</div>
+    {% if msg.anexos %}
+    <div class="anexos-ped">
+      {% for a in msg.anexos %}
+      <a class="anexo-ped" href="{{ url_for('pedidos.anexo', anexo_id=a.id) }}" target="_blank" rel="noopener">
+        {% if a.tipo.startswith("image/") and a.tipo != "image/heic" %}<img src="{{ url_for('pedidos.anexo', anexo_id=a.id) }}" alt="Foto anexada: {{ a.nome }}" loading="lazy">
+        {% else %}{{ m.icone("clipe") }}{{ a.nome }}{% endif %}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </li>
+  {% endif %}
+{%- endmacro %}

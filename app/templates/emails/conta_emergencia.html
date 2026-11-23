@@ -1,0 +1,13 @@
+{% extends "emails/_base.html" %}
+{% set empresa = nome_empresa() %}
+{% block selo %}Gestão de TI{% endblock %}
+{% block corpo %}
+<p style="margin:0 0 14px;font-size:20px;font-weight:700;">A conta local de emergência foi usada</p>
+<p style="margin:0 0 12px;"><strong>{{ usuario.nome }}</strong> ({{ usuario.email }}) entrou no sistema com a conta local, sem passar pelo Active Directory.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;font-size:14px;">
+  <tr><td style="padding:2px 14px 2px 0;color:#667085;">Quando</td><td>{{ quando|datahora }}</td></tr>
+  <tr><td style="padding:2px 14px 2px 0;color:#667085;">De onde (IP)</td><td>{{ ip or "não identificado" }}</td></tr>
+</table>
+<p style="margin:0;">Se ninguém da TI esperava este acesso, troque a senha da conta local e confira a auditoria.</p>
+{% endblock %}
+{% block rodape %}Aviso automático de segurança da plataforma de Gestão de TI de {{ empresa }}.{% endblock %}

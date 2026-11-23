@@ -1,0 +1,3 @@
+{% import "chamados/_mensagem.html" as msgs with context %}
+{% for msg in mensagens %}{{ msgs.item(msg, chamado, equipamento, False, msg.tipo == "mensagem") }}
+{% endfor %}

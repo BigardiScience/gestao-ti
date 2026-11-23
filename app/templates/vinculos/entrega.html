@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Entregar aparelho{% endblock %}
+{% block conteudo %}
+{{ m.cabecalho("Entregar aparelho", voltar=url_for('aparelhos.lista'), voltar_rotulo="Aparelhos") }}
+
+{% if not tem_disponiveis and not aparelho_escolhido %}
+<section class="painel formulario">{{ m.vazio("Nenhum aparelho disponível", "Todos estão em uso, em manutenção ou em conferência.", url_for('aparelhos.novo'), "Cadastrar aparelho") }}</section>
+{% elif not tem_colaboradores %}
+<section class="painel formulario">{{ m.vazio("Nenhum colaborador ativo", None, url_for('colaboradores.novo'), "Cadastrar colaborador") }}</section>
+{% else %}
+<form class="painel formulario" method="post" novalidate>
+  {{ m.csrf() }}
+  <div class="painel__corpo">
+    <div class="grade-form">
+      {{ m.seletor("colaborador_id", "Colaborador", url_for('vinculos.opcoes_colaboradores'), colaborador_escolhido, erros,
+                   "Digite o nome, o departamento ou a unidade",
+                   ajuda=("Limite da empresa: " ~ plural(limite, "aparelho") ~ " por pessoa.") if limite else None) }}
+      {{ m.seletor("aparelho_id", "Aparelho", url_for('vinculos.opcoes_aparelhos'), aparelho_escolhido, erros,
+                   "Digite o modelo, o IMEI ou a linha") }}
+      {{ m.campo("entregue_em", "Data e hora da entrega", form, erros, tipo="datetime-local", obrigatorio=True) }}
+    </div>
+    {% call m.mais_campos(("estado", "acessorios", "devolucao_prevista", "observacoes"), form, erros) %}
+      {{ m.campo_select("estado", "Estado na entrega", estados|pares, form, erros, vazio="O mesmo do cadastro") }}
+      {{ m.campo("devolucao_prevista", "Devolução prevista (empréstimo)", form, erros, tipo="date") }}
+      {{ m.campo("acessorios", "Acessórios entregues", form, erros, largo=True, attrs='placeholder="Se vazio, usa os do cadastro do aparelho"') }}
+      {{ m.campo_texto("observacoes", "Observações", form, erros, linhas=2) }}
+    {% endcall %}
+    <div class="opcoes mt-20">
+      {{ m.marcacao("gerar_termo", "Gerar o termo de responsabilidade", form, padrao=True) }}
+      {{ m.marcacao("enviar_agora", "Enviar o termo por e-mail agora, sem revisar", form) }}
+    </div>
+    <div class="rodape-form">
+      <a class="botao botao--fantasma" href="{{ url_for('aparelhos.lista') }}">Cancelar</a>
+      <button class="botao botao--primario" type="submit">{{ m.icone("entregar") }}Registrar entrega</button>
+    </div>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

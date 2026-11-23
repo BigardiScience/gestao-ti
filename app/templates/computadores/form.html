@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% set titulo = "Editar " ~ computador.nome if computador else "Cadastrar computador" %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% set uma_unidade = unidades|length == 1 %}
+{% block conteudo %}
+{% if computador %}
+{{ m.cabecalho(titulo, voltar=url_for('computadores.detalhe', computador_id=computador.id), voltar_rotulo=computador.nome) }}
+{% else %}
+{{ m.cabecalho(titulo, voltar=url_for('computadores.lista'), voltar_rotulo="Computadores") }}
+{% endif %}
+
+<form class="painel formulario" method="post" novalidate>
+  {{ m.csrf() }}
+  <div class="painel__corpo">
+    <div class="secao-form">
+      <h2>Identificação</h2>
+      <div class="grade-form">
+        {{ m.campo("nome", "Nome da máquina", form, erros, obrigatorio=True, attrs='autocomplete="off" spellcheck="false" placeholder="Ex.: PCSOR10" data-maiusculas') }}
+        {{ m.campo_select("unidade_id", "Unidade", unidades|opcoes, form, erros, obrigatorio=True, vazio=None if uma_unidade else "Selecione") }}
+        <div class="campo">
+          <span class="rotulo" id="rotulo-tipo">Tipo<span class="obrigatorio" aria-hidden="true">*</span></span>
+          <div class="segmentado" role="radiogroup" aria-labelledby="rotulo-tipo">
+            {% for valor, texto in tipos.items() %}
+            <label><input type="radio" name="tipo" value="{{ valor }}" {% if form.get('tipo') == valor %}checked{% endif %}><span>{{ texto }}</span></label>
+            {% endfor %}
+          </div>
+          {{ m.erro_campo(erros, "tipo") }}
+        </div>
+        {{ m.campo_select("situacao", "Situação", situacoes|itens_dict, form, erros, obrigatorio=True, vazio=None) }}
+      </div>
+      <div class="grade-form mt-16" data-mostrar-quando="situacao=desativado" hidden>
+        {{ m.campo_select("desativacao_motivo", "Motivo da desativação", motivos|pares, form, erros, obrigatorio=True) }}
+        {{ m.campo_select("destino_disco", "O que foi feito com o disco", destinos|pares, form, erros, obrigatorio=True, ajuda="Registro de descarte seguro (ISO 27001).") }}
+      </div>
+    </div>
+
+    <div class="secao-form">
+      <h2>Usuário</h2>
+      <div class="grade-form">
+        {{ m.campo("usuario_nome", "Nome do usuário", form, erros, attrs='autocomplete="off" placeholder="Ex.: Nicolas Vital"') }}
+        {{ m.campo("usuario_login", "Login de rede", form, erros, attrs='autocomplete="off" spellcheck="false" placeholder="Ex.: nicolas.vital"') }}
+        {{ m.campo("setor", "Setor", form, erros, attrs='list="lista-setores" autocomplete="off"') }}
+        {{ m.campo_select("usuario_situacao", "Situação do usuário", situacoes_usuario|itens_dict, form, erros, vazio=None) }}
+      </div>
+    </div>
+
+    <div class="secao-form">
+      <h2>Rede e acesso remoto</h2>
+      {% set faixa = unidades[0].redes if uma_unidade and unidades[0].redes else none %}
+      <div class="grade-form">
+        {{ m.campo("ip", "IP", form, erros, ajuda=("Faixa da unidade: " ~ faixa) if faixa else "IP fixo da máquina.", attrs='inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="172.16.161.10"') }}
+        {{ m.campo("mac", "MAC", form, erros, attrs='autocomplete="off" spellcheck="false" placeholder="02:00:5E:10:64:D2"') }}
+      </div>
+      <div class="grade-form mt-16" data-mostrar-quando="tipo=notebook" hidden>
+        {{ m.campo("ip_wifi", "IP do Wi-Fi", form, erros, attrs='inputmode="decimal" autocomplete="off" spellcheck="false"') }}
+        {{ m.campo("mac_wifi", "MAC do Wi-Fi", form, erros, attrs='autocomplete="off" spellcheck="false"') }}
+      </div>
+      <div class="grade-form mt-16">
+        {{ m.campo_select("remoto_ferramenta", "Acesso remoto", ferramentas|pares, form, erros, vazio="Nenhum") }}
+        {{ m.campo("remoto_id", "ID de acesso", form, erros, ajuda="Nunca registre senhas aqui.", attrs='autocomplete="off" spellcheck="false"') }}
+      </div>
+    </div>
+
+    <div class="secao-form">
+      <h2>Configuração</h2>
+      <div class="grade-form">
+        {{ m.campo("sistema", "Sistema operacional", form, erros, attrs='list="lista-sistemas" autocomplete="off"') }}
+        {{ m.campo("processador", "Processador", form, erros, attrs='list="lista-processadores" autocomplete="off" placeholder="Ex.: Intel Core i3-13100"') }}
+        {{ m.campo("memoria_gb", "Memória (GB)", form, erros, tipo="number", attrs='min="1" max="256" step="1" inputmode="numeric"') }}
+        {{ m.campo_select("sep", "SEP (antivírus)", sep|itens_dict, form, erros, vazio="Não informado") }}
+      </div>
+    </div>
+
+    <div class="secao-form">
+      <h2>Periféricos</h2>
+      <div class="grade-form">
+        {{ m.campo_select("nobreak", "Nobreak", (("1", "Sim"), ("0", "Não")), form, erros, vazio="Não informado") }}
+        {{ m.campo("monitor", "Monitor", form, erros, attrs='list="lista-monitores" autocomplete="off" placeholder="Ex.: 21&quot; ou 2x 24&quot;"') }}
+        <div class="campo campo--largo">
+          <div class="opcoes opcoes--linha">
+            {{ m.marcacao("webcam", "Webcam", form) }}
+            {{ m.marcacao("headset", "Headset", form) }}
+          </div>
+        </div>
+        {{ m.campo("outros_perifericos", "Outros periféricos", form, erros, largo=True, attrs='autocomplete="off" placeholder="Ex.: leitor de código de barras"') }}
+      </div>
+    </div>
+
+    {% call m.mais_campos(("marca", "modelo", "numero_serie", "patrimonio", "softwares", "observacoes"), form, erros) %}
+      {{ m.campo("marca", "Marca", form, erros, attrs='list="lista-marcas" autocomplete="off"') }}
+      {{ m.campo("modelo", "Modelo", form, erros, attrs='autocomplete="off"') }}
+      {{ m.campo("numero_serie", "Nº de série", form, erros, attrs='autocomplete="off" spellcheck="false"') }}
+      {{ m.campo("patrimonio", "Patrimônio", form, erros, attrs='autocomplete="off"') }}
+      {{ m.campo_texto("softwares", "Softwares específicos", form, erros, linhas=2, attrs='placeholder="Ex.: Elipse SCADA, CorelDRAW"') }}
+      {{ m.campo_texto("observacoes", "Observações", form, erros, linhas=2) }}
+    {% endcall %}
+
+    <datalist id="lista-setores">{% for v in setores %}<option value="{{ v }}">{% endfor %}</datalist>
+    <datalist id="lista-sistemas">{% for v in sistemas %}<option value="{{ v }}">{% endfor %}</datalist>
+    <datalist id="lista-processadores">{% for v in processadores %}<option value="{{ v }}">{% endfor %}</datalist>
+    <datalist id="lista-monitores">{% for v in monitores %}<option value="{{ v }}">{% endfor %}</datalist>
+    <datalist id="lista-marcas">{% for v in marcas %}<option value="{{ v }}">{% endfor %}</datalist>
+
+    <div class="rodape-form">
+      <a class="botao botao--fantasma" href="{{ url_for('computadores.detalhe', computador_id=computador.id) if computador else url_for('computadores.lista') }}">Cancelar</a>
+      {% if not computador %}<button class="botao" type="submit" name="proximo" value="outro">Salvar e cadastrar outro</button>{% endif %}
+      <button class="botao botao--primario" type="submit">{{ "Salvar" if computador else "Cadastrar computador" }}</button>
+    </div>
+  </div>
+</form>
+{% endblock %}

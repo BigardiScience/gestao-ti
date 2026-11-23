@@ -1,0 +1,3 @@
+{% import "pedidos/_mensagem.html" as msgs with context %}
+{% for msg in mensagens %}{{ msgs.item(msg, usuario) }}
+{% endfor %}

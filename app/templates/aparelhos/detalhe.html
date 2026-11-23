@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}{{ aparelho.marca }} {{ aparelho.modelo }}{% endblock %}
+{% set anteriores = vinculos|selectattr("devolvido_em")|list %}
+{% block conteudo %}
+{% call m.cabecalho("", voltar=url_for('aparelhos.lista'), voltar_rotulo="Aparelhos") %}
+  {% call m.mais_acoes() %}
+    {% if eh_admin() %}
+    <a href="{{ url_for('aparelhos.editar', aparelho_id=aparelho.id) }}">{{ m.icone("editar") }}Editar cadastro</a>
+    {% if aparelho.vinculo_id and aparelho.status != "disponivel" %}
+    <a href="{{ url_for('vinculos.transferir', vinculo_id=aparelho.vinculo_id) }}">{{ m.icone("movimento") }}Transferir para outra pessoa</a>
+    <a href="{{ url_for('vinculos.substituir', vinculo_id=aparelho.vinculo_id) }}">{{ m.icone("atualizar") }}Trocar por outro aparelho</a>
+    {% endif %}
+    {% endif %}
+    <a href="{{ url_for('aparelhos.etiqueta', aparelho_id=aparelho.id) }}" target="_blank" rel="noopener">{{ m.icone("impressora") }}Imprimir etiqueta</a>
+  {% endcall %}
+  {% if eh_admin() %}
+    {% if aparelho.status == "disponivel" %}
+    <a class="botao botao--primario" href="{{ url_for('vinculos.entregar', aparelho=aparelho.id) }}">{{ m.icone("entregar") }}Entregar</a>
+    {% elif aparelho.vinculo_id %}
+    <a class="botao botao--primario" href="{{ url_for('vinculos.devolver', vinculo_id=aparelho.vinculo_id) }}">{{ m.icone("devolver") }}Registrar devolução</a>
+    {% endif %}
+  {% endif %}
+{% endcall %}
+
+<section class="etiqueta" aria-label="Etiqueta do aparelho">
+  <div class="etiqueta__topo"><h1 class="etiqueta__modelo">{{ aparelho.marca }} {{ aparelho.modelo }}</h1>{{ m.selo_aparelho(aparelho.status) }}</div>
+  <div class="etiqueta__imei" aria-label="IMEI {{ aparelho.imei }}">{{ m.imei(aparelho.imei) }}</div>
+  <dl class="etiqueta__dados">
+    <div><dt>Linha</dt><dd>{% if aparelho.linha %}{{ aparelho.linha|telefone }}{% if aparelho.operadora %} ({{ aparelho.operadora }}){% endif %}{% else %}sem linha{% endif %}</dd></div>
+    <div><dt>Unidade</dt><dd>{{ aparelho.unidade_nome }}</dd></div>
+  </dl>
+</section>
+
+<div class="grade grade--lado mt-16">
+  <div class="pilha">
+    {% if aparelho.vinculo_id %}
+    <section class="painel" aria-labelledby="t-responsavel">
+      <div class="painel__cabecalho"><h2 id="t-responsavel">Responsável</h2>{{ m.status_termo_vinculo(aparelho.termo_status, aparelho.termo_expira_em) }}</div>
+      <div class="painel__corpo">
+        <div class="responsavel">
+          <span class="avatar" aria-hidden="true">{{ m.iniciais(aparelho.colaborador_nome) }}</span>
+          <div>
+            <a class="responsavel__nome" href="{{ url_for('colaboradores.detalhe', colaborador_id=aparelho.colaborador_id) }}">{{ aparelho.colaborador_nome }}</a>
+            <div class="secundario">{{ aparelho.colaborador_departamento }}{% if aparelho.colaborador_situacao == "desligado" %} · <span class="selo selo--desligado">Desligado</span>{% endif %}</div>
+          </div>
+          <div class="responsavel__fim">
+            <div>Desde {{ aparelho.entregue_em|data }}</div>
+            <div class="pequeno discreto">{{ plural(aparelho.entregue_em|dias, "dia") }}{% if aparelho.devolucao_prevista %} · devolver até {{ aparelho.devolucao_prevista|data }}{% endif %}</div>
+          </div>
+        </div>
+        <div class="botoes mt-16">
+          {% if aparelho.termo_id %}
+            <a class="botao botao--p" href="{{ url_for('termos.detalhe', termo_id=aparelho.termo_id) }}">{{ m.icone("documento", "icone--p") }}Termo {{ aparelho.termo_codigo }}</a>
+            {% if aparelho.termo_status == "assinado" %}<a class="botao botao--p botao--fantasma" href="{{ url_for('termos.pdf', termo_id=aparelho.termo_id) }}">{{ m.icone("baixar", "icone--p") }}PDF assinado</a>{% endif %}
+          {% elif eh_admin() %}
+            <form method="post" action="{{ url_for('termos.emitir', vinculo_id=aparelho.vinculo_id) }}">{{ m.csrf() }}
+              <button class="botao botao--p botao--primario" type="submit">{{ m.icone("documento", "icone--p") }}Emitir termo</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="painel" aria-labelledby="t-historico">
+      <div class="painel__cabecalho"><h2 id="t-historico">Histórico</h2></div>
+      <div class="painel__corpo">
+        <ul class="historico">{% for mov in historico[:12] %}{{ m.linha_historico(mov) }}{% endfor %}</ul>
+        {% if historico|length > 12 %}<a class="ver-tudo" href="{{ url_for('movimentacoes.lista', aparelho_id=aparelho.id) }}">Ver todo o histórico ({{ historico|length }})</a>{% endif %}
+      </div>
+    </section>
+    {% if eh_ti_chamados() %}{% with lista_chamados=chamados_equipamento %}{% include "chamados/_do_equipamento.html" %}{% endwith %}{% endif %}
+  </div>
+
+  <div class="pilha">
+    <section class="painel" aria-labelledby="t-dados">
+      <div class="painel__cabecalho"><h2 id="t-dados">Dados</h2></div>
+      <div class="painel__corpo">
+        <dl class="dados dados--linhas">
+          <div><dt>Série</dt><dd>{{ aparelho.numero_serie }}</dd></div>
+          {% if aparelho.imei2 %}<div><dt>IMEI 2</dt><dd>{{ aparelho.imei2 }}</dd></div>{% endif %}
+          <div><dt>Conservação</dt><dd>{{ aparelho.estado_conservacao }}</dd></div>
+          <div><dt>Status desde</dt><dd>{{ aparelho.status_desde|data }}</dd></div>
+          {% if aparelho.motivo_baixa %}<div><dt>Motivo da baixa</dt><dd>{{ aparelho.motivo_baixa }}</dd></div>{% endif %}
+          {% if aparelho.data_aquisicao %}<div><dt>Aquisição</dt><dd>{{ aparelho.data_aquisicao|data }}</dd></div>{% endif %}
+          {% if aparelho.valor_centavos %}<div><dt>Valor</dt><dd>{{ aparelho.valor_centavos|moeda }}</dd></div>{% endif %}
+          {% if aparelho.acessorios %}<div><dt>Acessórios</dt><dd>{{ aparelho.acessorios }}</dd></div>{% endif %}
+        </dl>
+        {% if aparelho.observacoes %}<p class="secundario mt-16">{{ aparelho.observacoes }}</p>{% endif %}
+      </div>
+    </section>
+
+    {% if anteriores %}
+    <section class="painel" aria-labelledby="t-anteriores">
+      <div class="painel__cabecalho"><h2 id="t-anteriores">Responsáveis anteriores</h2></div>
+      <ul class="pendencias">
+        {% for v in anteriores %}
+        <li class="pendencia">
+          <span class="pendencia__texto"><a href="{{ url_for('colaboradores.detalhe', colaborador_id=v.colaborador_id) }}">{{ v.colaborador_nome }}</a>
+            <small>{{ v.entregue_em|data }} a {{ v.devolvido_em|data }}</small></span>
+          {% if v.termo_id %}<a class="pendencia__acao" href="{{ url_for('termos.detalhe', termo_id=v.termo_id) }}">{{ v.termo_codigo }}</a>{% endif %}
+          <a class="pendencia__acao" href="{{ url_for('vinculos.comprovante', vinculo_id=v.id) }}" target="_blank" rel="noopener" title="Comprovante de devolução">{{ m.icone("baixar", "icone--p") }}<span class="visualmente-oculto">Comprovante de devolução</span></a>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {% if eh_admin() and aparelho.status != "em_uso" %}
+    <details class="painel recolhivel">
+      <summary>Alterar status</summary>
+      <div class="painel__corpo">
+        <form method="post" action="{{ url_for('aparelhos.alterar_status', aparelho_id=aparelho.id) }}" class="pilha" novalidate>
+          {{ m.csrf() }}
+          <p class="pequeno discreto">{{ ajuda_status[aparelho.status] }}</p>
+          <div class="campo">
+            <label for="novo-status">Novo status</label>
+            <select id="novo-status" name="status" required>
+              {% for s in transicoes %}<option value="{{ s }}">{{ STATUS_APARELHO[s] }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="campo" data-mostrar-quando="status=baixado" hidden>
+            <label for="motivo-baixa">Motivo da baixa</label>
+            <select id="motivo-baixa" name="motivo"><option value="">Selecione</option>
+              {% for mtv in motivos_baixa %}<option>{{ mtv }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="campo">
+            <label for="obs-status">Observação</label>
+            <input id="obs-status" type="text" name="observacao" placeholder="{{ 'Obrigatório para reativar' if aparelho.status == 'baixado' else 'Opcional' }}">
+          </div>
+          <button class="botao" type="submit">Atualizar status</button>
+        </form>
+        {% if not vinculos %}
+        <form class="mt-16" method="post" action="{{ url_for('aparelhos.excluir', aparelho_id=aparelho.id) }}"
+              data-confirmar="O cadastro deste aparelho será apagado. Use só para cadastros feitos por engano." data-confirmar-titulo="Excluir aparelho?"
+              data-confirmar-botao="Excluir" data-confirmar-perigo="1">
+          {{ m.csrf() }}
+          <button class="botao botao--perigo botao--p" type="submit">{{ m.icone("lixeira", "icone--p") }}Excluir cadastro</button>
+        </form>
+        {% endif %}
+      </div>
+    </details>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

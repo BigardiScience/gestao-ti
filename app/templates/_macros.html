@@ -1,0 +1,245 @@
+{% macro icone(nome, classe="") -%}
+<svg class="icone {{ classe }}" aria-hidden="true" focusable="false"><use href="{{ estatico('img/icones.svg') }}#i-{{ nome }}"/></svg>
+{%- endmacro %}
+
+{% macro marca_svg(classe="marca__simbolo") -%}
+<svg class="{{ classe }}" viewBox="0 0 40 40" aria-hidden="true"><rect x="2" y="7" width="36" height="26" rx="6" fill="#ffc72c" stroke="#172033" stroke-width="2"/><circle cx="9.5" cy="20" r="3" fill="#f2f4f7" stroke="#172033" stroke-width="1.8"/><rect x="19" y="11.5" width="11.5" height="17" rx="2.2" fill="none" stroke="#172033" stroke-width="2"/><line x1="23.5" y1="25" x2="26" y2="25" stroke="#172033" stroke-width="2" stroke-linecap="round"/></svg>
+{%- endmacro %}
+
+{% macro item_menu(endpoint, nome_icone, rotulo, ativo, contador=0) -%}
+<a class="menu__item{% if ativo %} menu__item--ativo{% endif %}" href="{{ url_for(endpoint) }}"{% if ativo %} aria-current="page"{% endif %}>{{ icone(nome_icone) }}<span>{{ rotulo }}</span>{% if contador %}<span class="menu__contador" title="Termos pendentes de assinatura">{{ contador }}</span>{% endif %}</a>
+{%- endmacro %}
+
+{% macro avisos(fechar=True) -%}
+{% with mensagens = get_flashed_messages(with_categories=true) %}
+{% if mensagens %}
+<div class="avisos" role="status">
+  {% for categoria, texto in mensagens %}
+  {% set icones = {"sucesso": "ok-circulo", "erro": "erro", "aviso": "alerta", "info": "info", "senha": "chave"} %}
+  <div class="aviso aviso--{{ categoria if categoria in icones else 'info' }}">
+    {{ icone(icones.get(categoria, "info")) }}
+    <div class="aviso__texto">{{ texto }}</div>
+    {% if fechar %}<button class="aviso__fechar" type="button" data-fechar-aviso aria-label="Fechar aviso">{{ icone("fechar", "icone--p") }}</button>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+{%- endmacro %}
+
+{# Cabeçalho de página: título (com contagem opcional) à esquerda, ações à direita. #}
+{% macro cabecalho(titulo, contagem=None, voltar=None, voltar_rotulo=None) -%}
+<div class="cabecalho">
+  <div class="cabecalho__texto">
+    {% if voltar %}<a class="cabecalho__voltar" href="{{ voltar }}">{{ icone("voltar", "icone--p") }}{{ voltar_rotulo }}</a>{% endif %}
+    {% if titulo %}<h1>{{ titulo }}{% if contagem is not none %} <span class="cabecalho__contagem">{{ contagem|milhar }}</span>{% endif %}</h1>{% endif %}
+  </div>
+  {% if caller %}<div class="cabecalho__acoes">{{ caller() }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{# Menu "Mais ações" (botão com três pontos) — uso: {% call m.mais_acoes() %}<a ...>...</a>{% endcall %} #}
+{% macro mais_acoes(rotulo="Mais ações") -%}
+<details class="acoes-mais">
+  <summary class="botao botao--quadrado" title="{{ rotulo }}">{{ icone("pontos") }}<span class="visualmente-oculto">{{ rotulo }}</span></summary>
+  <div class="acoes-mais__lista">{{ caller() }}</div>
+</details>
+{%- endmacro %}
+
+{% macro csrf() -%}<input type="hidden" name="_csrf" value="{{ csrf_token() }}">{%- endmacro %}
+
+{% macro valor(form, nome, padrao="") -%}
+{%- set v = form.get(nome) if form else none -%}
+{{- padrao if v is none else v -}}
+{%- endmacro %}
+
+{% macro erro_campo(erros, nome) -%}
+{% if erros and erros.get(nome) %}<span class="campo__erro" id="erro-{{ nome }}">{{ icone("alerta") }}{{ erros[nome] }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro campo(nome, rotulo, form, erros, tipo="text", obrigatorio=False, ajuda=None, largo=False, attrs="", padrao="") -%}
+<div class="campo{% if largo %} campo--largo{% endif %}{% if erros and erros.get(nome) %} campo--erro{% endif %}">
+  <label for="c-{{ nome }}">{{ rotulo }}{% if obrigatorio %}<span class="obrigatorio" aria-hidden="true">*</span>{% endif %}</label>
+  <input type="{{ tipo }}" id="c-{{ nome }}" name="{{ nome }}" value="{{ valor(form, nome, padrao) }}"
+         {% if obrigatorio %}required{% endif %} {% if erros and erros.get(nome) %}aria-invalid="true" aria-describedby="erro-{{ nome }}"{% elif ajuda %}aria-describedby="ajuda-{{ nome }}"{% endif %} {{ attrs|safe }}>
+  {% if ajuda %}<span class="campo__ajuda" id="ajuda-{{ nome }}">{{ ajuda }}</span>{% endif %}
+  {{ erro_campo(erros, nome) }}
+</div>
+{%- endmacro %}
+
+{% macro campo_select(nome, rotulo, opcoes, form, erros, obrigatorio=False, ajuda=None, vazio="Selecione", largo=False, attrs="", padrao="") -%}
+{%- set atual = valor(form, nome, padrao)|string -%}
+<div class="campo{% if largo %} campo--largo{% endif %}{% if erros and erros.get(nome) %} campo--erro{% endif %}">
+  <label for="c-{{ nome }}">{{ rotulo }}{% if obrigatorio %}<span class="obrigatorio" aria-hidden="true">*</span>{% endif %}</label>
+  <select id="c-{{ nome }}" name="{{ nome }}" {% if obrigatorio %}required{% endif %} {% if erros and erros.get(nome) %}aria-invalid="true" aria-describedby="erro-{{ nome }}"{% elif ajuda %}aria-describedby="ajuda-{{ nome }}"{% endif %} {{ attrs|safe }}>
+    {% if vazio %}<option value="">{{ vazio }}</option>{% endif %}
+    {% for valor_opcao, texto in opcoes %}
+    <option value="{{ valor_opcao }}" {% if atual == valor_opcao|string %}selected{% endif %}>{{ texto }}</option>
+    {% endfor %}
+  </select>
+  {% if ajuda %}<span class="campo__ajuda" id="ajuda-{{ nome }}">{{ ajuda }}</span>{% endif %}
+  {{ erro_campo(erros, nome) }}
+</div>
+{%- endmacro %}
+
+{% macro campo_texto(nome, rotulo, form, erros, obrigatorio=False, ajuda=None, largo=True, linhas=3, attrs="", classe="") -%}
+<div class="campo{% if largo %} campo--largo{% endif %}{% if erros and erros.get(nome) %} campo--erro{% endif %}">
+  <label for="c-{{ nome }}">{{ rotulo }}{% if obrigatorio %}<span class="obrigatorio" aria-hidden="true">*</span>{% endif %}</label>
+  <textarea id="c-{{ nome }}" name="{{ nome }}" rows="{{ linhas }}" class="{{ classe }}" {% if obrigatorio %}required{% endif %} {% if erros and erros.get(nome) %}aria-invalid="true" aria-describedby="erro-{{ nome }}"{% endif %} {{ attrs|safe }}>{{ valor(form, nome) }}</textarea>
+  {% if ajuda %}<span class="campo__ajuda">{{ ajuda }}</span>{% endif %}
+  {{ erro_campo(erros, nome) }}
+</div>
+{%- endmacro %}
+
+{# Campo de escolha com busca no servidor (colaboradores e aparelhos): mostra no máximo 20 opções por vez. #}
+{% macro seletor(nome, rotulo, url, escolhido, erros, placeholder, obrigatorio=True, ajuda=None) -%}
+<div class="campo campo--largo seletor{% if erros and erros.get(nome) %} campo--erro{% endif %}" data-seletor="{{ url }}">
+  <label for="c-{{ nome }}">{{ rotulo }}{% if obrigatorio %}<span class="obrigatorio" aria-hidden="true">*</span>{% endif %}</label>
+  <input type="hidden" name="{{ nome }}" value="{{ escolhido.id if escolhido else '' }}" data-seletor-valor>
+  <div class="seletor__escolhido"{% if not escolhido %} hidden{% endif %}>
+    <span data-seletor-texto>{% if escolhido %}{{ escolhido.titulo }}<small>{{ escolhido.detalhe }}</small>{% endif %}</span>
+    <button class="botao botao--p botao--fantasma" type="button" data-seletor-trocar>Trocar</button>
+  </div>
+  <input class="entrada" type="search" id="c-{{ nome }}" placeholder="{{ placeholder }}" autocomplete="off" role="combobox"
+         aria-autocomplete="list" aria-expanded="false" aria-controls="lista-{{ nome }}"{% if escolhido %} hidden{% endif %}
+         {% if erros and erros.get(nome) %} aria-invalid="true" aria-describedby="erro-{{ nome }}"{% endif %}>
+  <ul class="seletor__lista" id="lista-{{ nome }}" role="listbox" aria-label="{{ rotulo }}"></ul>
+  {% if ajuda %}<span class="campo__ajuda">{{ ajuda }}</span>{% endif %}
+  {{ erro_campo(erros, nome) }}
+</div>
+{%- endmacro %}
+
+{% macro marcacao(nome, rotulo, form, ajuda=None, padrao=False) -%}
+{%- set v = form.get(nome) if form else none -%}
+{%- set marcado = (v in ("1", "on", 1, True)) if v is not none else padrao -%}
+<label class="marcacao">
+  <input type="checkbox" name="{{ nome }}" value="1" {% if marcado %}checked{% endif %}>
+  <span class="marcacao__texto">{{ rotulo }}{% if ajuda %}<small>{{ ajuda }}</small>{% endif %}</span>
+</label>
+{%- endmacro %}
+
+{# Campos opcionais ficam recolhidos; abrem sozinhos se algum já tiver valor ou erro. #}
+{% macro mais_campos(nomes, form, erros, rotulo="Mais informações") -%}
+{%- set aberto = namespace(v=False) -%}
+{%- for n in nomes %}{% if (form and form.get(n) not in (none, "")) or (erros and erros.get(n)) %}{% set aberto.v = True %}{% endif %}{% endfor -%}
+<details class="mais-campos"{% if aberto.v %} open{% endif %}>
+  <summary>{{ rotulo }}</summary>
+  <div class="grade-form">{{ caller() }}</div>
+</details>
+{%- endmacro %}
+
+{% macro selo_aparelho(status) -%}
+<span class="selo selo--{{ status }}">{{ STATUS_APARELHO.get(status, status) }}</span>
+{%- endmacro %}
+
+{% macro selo_termo(status) -%}
+{% if status == "sem_termo" %}<span class="selo selo--sem_termo">Sem termo</span>
+{% elif status %}<span class="selo selo--{{ status }}">{{ STATUS_TERMO.get(status, status) }}</span>{% endif %}
+{%- endmacro %}
+
+{%- macro situacao_termo(status, expira_em, tem_vinculo=True) -%}
+{%- if not status and tem_vinculo -%}sem_termo
+{%- elif status == "enviado" and expira_em and expira_em < agora_bd() -%}expirado
+{%- else -%}{{ status or "" }}{%- endif -%}
+{%- endmacro -%}
+
+{% macro status_termo_vinculo(status, expira_em, tem_vinculo=True) -%}
+{{ selo_termo(situacao_termo(status, expira_em, tem_vinculo)) }}
+{%- endmacro %}
+
+{# Só mostra o termo quando ele pede atenção (assinado é o normal e não precisa de selo). #}
+{% macro alerta_termo(status, expira_em, tem_vinculo=True) -%}
+{%- set s = situacao_termo(status, expira_em, tem_vinculo) -%}
+{% if s and s != "assinado" %}{{ selo_termo(s) }}{% endif %}
+{%- endmacro %}
+
+{% macro imei(valor) -%}
+{%- if valor and valor|length == 15 -%}<span>{{ valor[:8] }}</span><span>{{ valor[8:14] }}</span><span>{{ valor[14:] }}</span>{%- else -%}{{ valor }}{%- endif -%}
+{%- endmacro %}
+
+{% macro iniciais(nome) -%}
+{%- set partes = (nome or "?").split() -%}
+{{- (partes[0][0] ~ (partes[-1][0] if partes|length > 1 else ""))|upper -}}
+{%- endmacro %}
+
+{% macro ordenar(chave, rotulo, ordem) -%}
+<a href="{{ url_com(ordem=chave) }}" {% if ordem == chave %}class="ordem-ativa" aria-current="true"{% endif %}>{{ rotulo }}{% if ordem == chave %}<span aria-hidden="true">↓</span>{% endif %}</a>
+{%- endmacro %}
+
+{% macro paginacao(pagina, nome=None) -%}
+{% if pagina.paginas > 1 %}
+<nav class="paginacao" aria-label="Paginação">
+  <span>{{ pagina.inicio|milhar }}–{{ pagina.fim|milhar }} de {{ pagina.total|milhar }}</span>
+  {% if pagina.pagina > 1 %}<a class="botao botao--quadrado botao--p" href="{{ url_com(pagina=pagina.pagina - 1) }}" title="Página anterior">{{ icone("voltar", "icone--p") }}<span class="visualmente-oculto">Página anterior</span></a>{% endif %}
+  {% if pagina.pagina < pagina.paginas %}<a class="botao botao--quadrado botao--p" href="{{ url_com(pagina=pagina.pagina + 1) }}" title="Próxima página">{{ icone("seta-direita", "icone--p") }}<span class="visualmente-oculto">Próxima página</span></a>{% endif %}
+</nav>
+{% endif %}
+{%- endmacro %}
+
+{% macro vazio(titulo, texto=None, url=None, acao=None) -%}
+<div class="vazio">
+  <p class="vazio__titulo">{{ titulo }}</p>
+  {% if texto %}<p>{{ texto }}</p>{% endif %}
+  {% if url %}<a class="botao botao--primario" href="{{ url }}">{{ icone("mais") }}{{ acao }}</a>{% endif %}
+</div>
+{%- endmacro %}
+
+{# Filtros rápidos em forma de "chips": cada um é um link que troca um parâmetro da URL. #}
+{% macro chips(parametro, opcoes, atual, rotulo) -%}
+<nav class="chips" aria-label="{{ rotulo }}">
+  {% for valor_opcao, texto in opcoes %}
+  <a class="chip{% if (atual or '') == valor_opcao %} chip--ativo{% endif %}" href="{{ url_com(**{parametro: valor_opcao}) }}"{% if (atual or '') == valor_opcao %} aria-current="true"{% endif %}>{{ texto }}</a>
+  {% endfor %}
+</nav>
+{%- endmacro %}
+
+{% macro grupo_movimento(tipo) -%}
+{%- set grupos = {"entrega": "uso", "transferencia": "uso", "substituicao": "uso", "colaborador_reativacao": "uso",
+                  "devolucao": "devolucao", "termo_assinado": "ok", "baixa": "perigo", "termo_cancelado": "perigo",
+                  "colaborador_desligamento": "perigo", "status": "aviso"} -%}
+{{- grupos.get(tipo, "neutro") -}}
+{%- endmacro %}
+
+{% macro linha_historico(m, mostrar_aparelho=False) -%}
+<li class="historico__item">
+  <span class="historico__ponto historico__ponto--{{ grupo_movimento(m.tipo) }}" aria-hidden="true"></span>
+  <div class="historico__corpo">
+    <span class="visualmente-oculto">{{ TIPOS_MOVIMENTACAO.get(m.tipo, m.tipo) }}: </span>{{ m.descricao }}
+    {%- if mostrar_aparelho and m.marca %} <a class="historico__link" href="{{ url_for('aparelhos.detalhe', aparelho_id=m.aparelho_id) }}">{{ m.marca }} {{ m.modelo }}</a>{% endif %}
+    {% if m.detalhes and m.tipo in ("alteracao", "colaborador_alteracao") %}
+      {% set mudancas = m.detalhes|fromjson %}
+      {% if mudancas %}
+      <ul class="historico__mudancas">
+        {% for campo, par in mudancas.items() %}<li>{{ campo }}: {{ par[0] if par[0] not in (none, "") else "vazio" }} → {{ par[1] if par[1] not in (none, "") else "vazio" }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+    {% endif %}
+  </div>
+  <time class="historico__quando" datetime="{{ m.ocorrido_em }}" title="{{ m.ocorrido_em|datahora }}{% if m.usuario_nome %} por {{ m.usuario_nome }}{% endif %}">{{ m.ocorrido_em|quando }}</time>
+</li>
+{%- endmacro %}
+
+{# ------------------------------------------------------------------ computadores #}
+{% macro selo_computador(situacao) -%}
+{%- set css = {"em_uso": "em_uso", "reserva": "disponivel", "manutencao": "manutencao", "desativado": "baixado"} -%}
+<span class="selo selo--{{ css.get(situacao, 'baixado') }}">{{ SITUACOES_COMPUTADOR.get(situacao, situacao) }}</span>
+{%- endmacro %}
+
+{% macro selo_sep(sep) -%}
+{% if sep == "ok" %}<span class="selo selo--assinado">OK</span>
+{% elif sep == "pendente" %}<span class="selo selo--enviado">Pendente</span>
+{% elif sep == "nao_instalado" %}<span class="selo selo--falha">Não instalado</span>
+{% else %}<span class="discreto">—</span>{% endif %}
+{%- endmacro %}
+
+{% macro selo_usuario(situacao) -%}
+{% if situacao == "ferias" %} <span class="selo selo--enviado">Férias</span>
+{% elif situacao == "desligado" %} <span class="selo selo--falha">Desligado</span>{% endif %}
+{%- endmacro %}
+
+{% macro indicador(rotulo, numero, href, classe, ativo) -%}
+<a class="indicador indicador--{{ classe }}{% if ativo %} indicador--ativo{% endif %}{% if numero %} indicador--tem{% endif %}" href="{{ href }}"{% if ativo %} aria-current="true"{% endif %}>
+  <span class="indicador__numero">{{ numero|milhar }}</span>
+  <span class="indicador__rotulo">{{ rotulo }}</span>
+</a>
+{%- endmacro %}

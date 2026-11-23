@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Active Directory{% endblock %}
+{% block conteudo %}
+{% include "configuracoes/_abas.html" %}
+<div class="grade grade--lado">
+  <div class="pilha">
+    <form class="painel" method="post" novalidate>
+      {{ m.csrf() }}
+      <div class="painel__corpo">
+        <div class="secao-form">
+          <h2>Login pelo Active Directory</h2>
+          <p class="secundario">Com o login pelo AD ligado, todo mundo entra com o usuário e a senha do Windows. A senha nunca é
+            guardada: o sistema só confere no controlador (sempre LDAPS) e lê nome, e-mail, unidade e setor.</p>
+          {% if not request.is_secure and request.host.split(":")[0] not in ("localhost", "127.0.0.1") %}
+          <div class="aviso aviso--erro mb-16">{{ m.icone("alerta") }}<div class="aviso__texto">Este acesso está sem HTTPS. O login pelo AD só funciona por HTTPS (a senha do Windows passa pelo navegador). Veja o guia de instalação.</div></div>
+          {% endif %}
+          {{ m.marcacao("ad_ativo", "Ligar o login pelo AD", form, "A conta local do administrador continua funcionando para emergências, e cada uso dela gera um aviso por e-mail.") }}
+          {{ m.erro_campo(erros, "ad_ativo") }}
+          <div class="grade-form mt-16">
+            {{ m.campo("ad_dominio", "Domínio", form, erros, attrs='placeholder="empresa.local" spellcheck="false"') }}
+            {{ m.campo("ad_porta", "Porta LDAPS", form, erros, tipo="number", attrs='min="1" max="65535"') }}
+            {{ m.campo_texto("ad_servidores", "Controladores de domínio", form, erros, linhas=2,
+                             ajuda="Um por linha, na ordem: o principal primeiro (ex.: DC01.empresa.local) e depois a reserva (DC02.empresa.local).",
+                             attrs='spellcheck="false"') }}
+            {{ m.campo("ad_timeout", "Tempo limite (segundos)", form, erros, tipo="number", attrs='min="2" max="30"') }}
+          </div>
+        </div>
+        <div class="secao-form">
+          <h2>Certificado</h2>
+          {{ m.marcacao("ad_verificar_certificado", "Conferir o certificado dos controladores (recomendado)", form,
+                        "Desligar só para um teste rápido: sem a conferência, outra máquina poderia se passar pelo controlador.") }}
+          {% if form.get("ad_verificar_certificado") in ("0", "", none) %}
+          <div class="aviso aviso--erro mt-16">{{ m.icone("alerta") }}<div class="aviso__texto">A conferência do certificado está desligada. Ligue antes de liberar o sistema para os colaboradores.</div></div>
+          {% endif %}
+          <div class="grade-form mt-16">
+            {{ m.campo_texto("ad_ca_pem", "Certificado da autoridade do domínio (opcional)", form, erros, linhas=4,
+                             ajuda="Se o servidor não confiar no certificado dos controladores, cole aqui o certificado da CA interna (formato PEM, começa com -----BEGIN CERTIFICATE-----).",
+                             attrs='spellcheck="false"', classe="entrada-codigo") }}
+          </div>
+        </div>
+        <div class="rodape-form"><button class="botao botao--primario" type="submit">Salvar</button></div>
+      </div>
+    </form>
+
+    <form class="painel" method="post" action="{{ url_for('configuracoes.testar_ad') }}" novalidate autocomplete="off">
+      {{ m.csrf() }}
+      <div class="painel__cabecalho"><h2>Testar com um usuário</h2></div>
+      <div class="painel__corpo">
+        <p class="secundario pequeno">Confere a senha no AD e mostra o que o sistema leu, sem criar acesso nem guardar a senha. Salve a configuração antes.</p>
+        <div class="grade-form">
+          {{ m.campo("teste_login", "Usuário", {"teste_login": teste_login or ""}, None, attrs='autocomplete="off" spellcheck="false" placeholder="nome.sobrenome"') }}
+          <div class="campo"><label for="c-teste_senha">Senha</label><input id="c-teste_senha" type="password" name="teste_senha" autocomplete="new-password"></div>
+        </div>
+        <button class="botao mt-16" type="submit">Testar</button>
+        {% if resultado %}
+        <div class="aviso aviso--{{ 'sucesso' if resultado.unidade_ativa else 'aviso' }} resultado-teste">
+          {{ m.icone("ok-circulo" if resultado.unidade_ativa else "alerta") }}
+          <div class="aviso__texto">
+            <strong>{{ resultado.nome }}</strong> ({{ resultado.login }}){% if resultado.email %} · {{ resultado.email }}{% endif %}<br>
+            OU da unidade: {{ resultado.unidade_ou or "não encontrada no caminho" }} → {{ resultado.unidade or "nenhuma unidade do sistema com esta OU" }}{% if resultado.unidade and not resultado.unidade_ativa %} (inativa){% endif %}<br>
+            Setor: {{ resultado.setor or "não encontrado" }}<br>
+            <small class="quebra">{{ resultado.dn }}</small>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <aside class="painel" aria-labelledby="t-ous">
+    <div class="painel__cabecalho"><h2 id="t-ous">Unidades e OUs</h2><a href="{{ url_for('unidades.lista') }}">Unidades</a></div>
+    <div class="painel__corpo">
+      <p class="pequeno secundario">A unidade de cada pessoa vem da OU logo acima de “Setores” no AD. Quem estiver numa OU sem unidade (ex.: BA - Camaçari) recebe “sua unidade ainda não usa este sistema”.</p>
+      <ul class="pendencias">
+        {% for u in unidades %}
+        <li class="pendencia"><span class="pendencia__texto">{{ u.nome }}{% if not u.ativo %} <span class="discreto">(inativa)</span>{% endif %}
+          <small>{{ u.ou_ad or "OU não informada" }} · {{ "pedidos liberados" if u.chamados_ativo else "pedidos desligados" }}</small></span>
+          <a class="botao botao--p" href="{{ url_for('unidades.editar', unidade_id=u.id) }}">Editar</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </aside>
+</div>
+{% endblock %}

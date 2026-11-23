@@ -1,0 +1,21 @@
+{% extends "base_publica.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Código de acesso{% endblock %}
+{% block conteudo %}
+<div class="acesso__caixa centro-bloco">
+  <div class="acesso__painel">
+    <h1>Digite o código</h1>
+    <p>Se {{ email }} estiver cadastrado, um código de 6 dígitos chegou no seu e-mail. Vale 15 minutos.</p>
+    {% if erro %}<div class="aviso aviso--erro" role="alert">{{ m.icone("erro") }}<div class="aviso__texto">{{ erro }}</div></div>{% endif %}
+    <form method="post" novalidate>
+      {{ m.csrf() }}
+      <div class="campo">
+        <label for="codigo">Código de acesso</label>
+        <input id="codigo" type="text" name="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" data-mascara="codigo" required autofocus placeholder="000000">
+      </div>
+      <button class="botao botao--primario botao--bloco" type="submit">Entrar</button>
+    </form>
+  </div>
+  <p class="acesso__extra"><a href="{{ url_for('portal.entrar') }}">Pedir novo código</a></p>
+</div>
+{% endblock %}

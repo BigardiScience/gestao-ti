@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Unidades{% endblock %}
+{% block conteudo %}
+{% call m.cabecalho("Unidades", unidades|length if unidades else None) %}
+  {% if eh_admin() %}<a class="botao botao--primario" href="{{ url_for('unidades.nova') }}">{{ m.icone("mais") }}Cadastrar unidade</a>{% endif %}
+{% endcall %}
+<section class="painel">
+  {% if unidades %}
+  <div class="tabela-rolagem">
+    <table class="tabela tabela--cartoes">
+      <thead><tr><th>Unidade</th><th>Cidade</th><th class="num direita">Computadores</th><th class="num direita">Aparelhos</th><th class="num direita">Em uso</th><th class="num direita">Colaboradores</th><th><span class="visualmente-oculto">Ações</span></th></tr></thead>
+      <tbody>
+      {% for u in unidades %}
+        <tr>
+          <td><a class="titulo-celula" href="{{ url_for('painel.inicio', unidade=u.id) }}">{{ u.nome }}</a>{% if not u.ativo %} <span class="selo selo--desligado">Inativa</span>{% endif %}</td>
+          <td data-celular="oculto">{{ u.cidade or "—" }}{% if u.uf %}/{{ u.uf }}{% endif %}</td>
+          <td class="num direita" data-celular="linha"><a href="{{ url_for('computadores.lista', unidade=u.id) }}">{{ plural(u.computadores, "computador", "computadores") }}</a></td>
+          <td class="num direita" data-celular="linha"><a href="{{ url_for('aparelhos.lista', unidade=u.id) }}">{{ plural(u.aparelhos, "aparelho") }}</a></td>
+          <td class="num direita" data-celular="oculto">{{ u.em_uso }}</td>
+          <td class="num direita" data-celular="linha"><a href="{{ url_for('colaboradores.lista', unidade=u.id) }}">{{ plural(u.colaboradores, "colaborador", "colaboradores") }}</a></td>
+          <td class="celula-acoes" data-celular="direita">{% if eh_admin() %}<a class="botao botao--quadrado botao--p botao--fantasma" href="{{ url_for('unidades.editar', unidade_id=u.id) }}" title="Editar">{{ m.icone("editar", "icone--p") }}<span class="visualmente-oculto">Editar {{ u.nome }}</span></a>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  {{ m.vazio("Nenhuma unidade cadastrada", "Comece pelas filiais: matriz, fábricas, centros de distribuição.", url_for('unidades.nova') if eh_admin() else none, "Cadastrar unidade") }}
+  {% endif %}
+</section>
+{% endblock %}

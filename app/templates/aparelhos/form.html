@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% set titulo = "Editar aparelho" if aparelho else "Cadastrar aparelho" %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+{% if aparelho %}
+{{ m.cabecalho(titulo, voltar=url_for('aparelhos.detalhe', aparelho_id=aparelho.id), voltar_rotulo=aparelho.marca ~ " " ~ aparelho.modelo) }}
+{% else %}
+{{ m.cabecalho(titulo, voltar=url_for('aparelhos.lista'), voltar_rotulo="Aparelhos") }}
+{% endif %}
+
+<form class="painel formulario" method="post" novalidate>
+  {{ m.csrf() }}
+  <div class="painel__corpo">
+    <div class="grade-form">
+      {{ m.campo("marca", "Marca", form, erros, obrigatorio=True, attrs='list="lista-marcas" autocomplete="off"') }}
+      {{ m.campo("modelo", "Modelo", form, erros, obrigatorio=True, attrs='autocomplete="off" placeholder="Ex.: Galaxy A54"') }}
+      {{ m.campo("imei", "IMEI", form, erros, obrigatorio=True, attrs='inputmode="numeric" data-mascara="imei" autocomplete="off" placeholder="15 dígitos (disque *#06#)"') }}
+      {{ m.campo("numero_serie", "Número de série", form, erros, obrigatorio=True, attrs='autocomplete="off"') }}
+      {{ m.campo("linha", "Linha", form, erros, tipo="tel", attrs='data-mascara="telefone" placeholder="Vazio se estiver sem chip" autocomplete="off"', padrao="") }}
+      {{ m.campo("operadora", "Operadora", form, erros, attrs='list="lista-operadoras" autocomplete="off"') }}
+      {{ m.campo_select("unidade_id", "Unidade", unidades|opcoes, form, erros, obrigatorio=True) }}
+      {% if not aparelho %}
+      {{ m.campo_select("status", "Status", status_cadastro|opcoes_status, form, erros, obrigatorio=True, vazio=None) }}
+      {% endif %}
+    </div>
+    {% call m.mais_campos(("imei2", "data_aquisicao", "valor", "acessorios", "observacoes") + (("estado_conservacao",) if erros.get("estado_conservacao") else ()), form, erros) %}
+      {{ m.campo_select("estado_conservacao", "Estado de conservação", estados|pares, form, erros, obrigatorio=True) }}
+      {{ m.campo("imei2", "IMEI 2 (dois chips)", form, erros, attrs='inputmode="numeric" data-mascara="imei" autocomplete="off"') }}
+      {{ m.campo("data_aquisicao", "Data de aquisição", form, erros, tipo="date") }}
+      {{ m.campo("valor", "Valor de referência (R$)", form, erros, attrs='inputmode="decimal" placeholder="1.899,00"') }}
+      {{ m.campo("acessorios", "Acessórios", form, erros, largo=True, attrs='placeholder="Ex.: carregador, cabo, capa e película"') }}
+      {{ m.campo_texto("observacoes", "Observações", form, erros, linhas=2) }}
+    {% endcall %}
+    <datalist id="lista-marcas">{% for marca in marcas %}<option value="{{ marca }}">{% endfor %}</datalist>
+    <datalist id="lista-operadoras">{% for o in operadoras %}<option value="{{ o }}">{% endfor %}</datalist>
+
+    <div class="rodape-form">
+      <a class="botao botao--fantasma" href="{{ url_for('aparelhos.detalhe', aparelho_id=aparelho.id) if aparelho else url_for('aparelhos.lista') }}">Cancelar</a>
+      {% if not aparelho %}<button class="botao" type="submit" name="proximo" value="outro">Salvar e cadastrar outro</button>{% endif %}
+      <button class="botao botao--primario" type="submit">{{ "Salvar" if aparelho else "Cadastrar aparelho" }}</button>
+    </div>
+  </div>
+</form>
+{% endblock %}

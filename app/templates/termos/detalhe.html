@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block titulo %}Termo {{ termo.codigo }}{% endblock %}
+{% set st = termo.status_efetivo %}
+{% set pode_agir = eh_admin() and termo.status in ("gerado", "enviado") and not termo.vinculo_encerrado_em %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div class="cabecalho__texto">
+    <a class="cabecalho__voltar" href="{{ url_for('termos.lista') }}">{{ m.icone("voltar", "icone--p") }}Termos</a>
+    <div class="titulo-status"><h1>Termo {{ termo.codigo }}</h1>{{ m.selo_termo(st) }}</div>
+    <div class="cabecalho__linha">
+      <a href="{{ url_for('colaboradores.detalhe', colaborador_id=termo.colaborador_id) }}">{{ termo.colaborador_nome }}</a>
+      <a href="{{ url_for('aparelhos.detalhe', aparelho_id=termo.aparelho_id) }}">{{ termo.marca }} {{ termo.modelo }}</a>
+    </div>
+  </div>
+  <div class="cabecalho__acoes">
+    {% call m.mais_acoes() %}
+      <a href="{{ url_for('termos.pdf', termo_id=termo.id, ver=1) }}" target="_blank" rel="noopener">{{ m.icone("olho") }}{{ "Abrir PDF" if termo.status == "assinado" else "Prévia em PDF" }}</a>
+      {% if pode_agir and termo.status == "enviado" and st != "expirado" %}
+      <form method="post" action="{{ url_for('termos.lembrete', termo_id=termo.id) }}">{{ m.csrf() }}
+        <button type="submit">{{ m.icone("sino") }}Enviar lembrete</button></form>
+      {% endif %}
+      {% if pode_agir %}
+      <hr>
+      <form method="post" action="{{ url_for('termos.cancelar', termo_id=termo.id) }}" data-confirmar="O link de assinatura deixa de funcionar. Se a entrega continua valendo, emita um novo termo depois."
+            data-confirmar-titulo="Cancelar este termo?" data-confirmar-botao="Cancelar termo" data-confirmar-perigo="1"
+            data-confirmar-campo="motivo" data-confirmar-campo-rotulo="Motivo do cancelamento">
+        {{ m.csrf() }}<button class="perigo" type="submit">{{ m.icone("fechar") }}Cancelar termo</button>
+      </form>
+      {% endif %}
+    {% endcall %}
+    {% if termo.status == "assinado" %}
+      <a class="botao botao--primario" href="{{ url_for('termos.pdf', termo_id=termo.id) }}">{{ m.icone("baixar") }}Baixar PDF</a>
+    {% elif pode_agir %}
+      <form method="post" action="{{ url_for('termos.enviar', termo_id=termo.id) }}">{{ m.csrf() }}
+        <button class="botao botao--primario" type="submit">{{ m.icone("enviar") }}{% if termo.status == "gerado" %}Enviar para assinatura{% elif st == "expirado" %}Reenviar com novo link{% else %}Reenviar link{% endif %}</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if termo.status == "gerado" %}
+<div class="avisos"><div class="aviso aviso--info">{{ m.icone("info") }}<div class="aviso__texto">Revise o termo. O link de assinatura vai para <strong>{{ termo.colaborador_email }}</strong>.</div></div></div>
+{% elif st == "expirado" %}
+<div class="avisos"><div class="aviso aviso--erro">{{ m.icone("alerta") }}<div class="aviso__texto">O link venceu em {{ termo.token_expira_em|datahora }} sem assinatura.</div></div></div>
+{% elif termo.status == "cancelado" %}
+<div class="avisos"><div class="aviso aviso--aviso">{{ m.icone("info") }}<div class="aviso__texto">Cancelado em {{ termo.cancelado_em|datahora }}{% if termo.cancelado_por_nome %} por {{ termo.cancelado_por_nome }}{% endif %}. Motivo: {{ termo.motivo_cancelamento }}</div></div></div>
+{% endif %}
+
+<div class="grade grade--lado">
+  <div class="pilha">
+    {% if termo.status == "gerado" %}
+    <section class="painel">{% include "termos/_documento.html" %}</section>
+    {% else %}
+    <details class="painel recolhivel">
+      <summary>Conteúdo do termo</summary>
+      {% include "termos/_documento.html" %}
+    </details>
+    {% endif %}
+
+    <section class="painel" aria-labelledby="t-eventos">
+      <div class="painel__cabecalho"><h2 id="t-eventos">Histórico</h2></div>
+      <div class="painel__corpo">
+        <ul class="historico">
+          {% for e in eventos|reverse %}
+          <li class="historico__item">
+            <span class="historico__ponto historico__ponto--{{ 'ok' if e.evento == 'assinado' else ('perigo' if e.evento in ('falha_envio', 'cancelado') else 'neutro') }}" aria-hidden="true"></span>
+            <div class="historico__corpo">{{ rotulos_eventos.get(e.evento, e.evento) }}
+              <span class="discreto">{% if e.usuario_nome %}por {{ e.usuario_nome }}{% elif e.evento in ("visualizado", "codigo_enviado", "assinado") %}pelo colaborador{% endif %}</span></div>
+            <time class="historico__quando" datetime="{{ e.ocorrido_em }}" title="{{ e.ocorrido_em|datahora }}{% if e.ip %} · IP {{ e.ip }}{% endif %}">{{ e.ocorrido_em|quando }}</time>
+          </li>
+          {% endfor %}
+        </ul>
+        {% if emails %}
+        <h3 class="mt-20">E-mails</h3>
+        <ul class="historico mt-10">
+          {% for e in emails %}
+          <li class="historico__item">
+            <span class="historico__ponto historico__ponto--{{ 'perigo' if e.status == 'falha' else 'neutro' }}" aria-hidden="true"></span>
+            <div class="historico__corpo">{% if eh_admin() %}<a href="{{ url_for('configuracoes.email_detalhe', email_id=e.id) }}">{{ e.assunto }}</a>{% else %}{{ e.assunto }}{% endif %}
+              <span class="discreto">para {{ e.destinatario }}</span>{% if e.status == "falha" %} <span class="selo selo--falha">Falha</span>{% endif %}
+              {% if e.erro %}<div class="pequeno discreto">{{ e.erro }}</div>{% endif %}</div>
+            <time class="historico__quando" datetime="{{ e.criado_em }}" title="{{ e.criado_em|datahora }}">{{ e.criado_em|quando }}</time>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+
+  <div class="pilha">
+    <section class="painel" aria-labelledby="t-situacao">
+      <div class="painel__cabecalho"><h2 id="t-situacao">Situação</h2></div>
+      <div class="painel__corpo">
+        <dl class="dados dados--linhas">
+          <div><dt>Emitido</dt><dd>{{ termo.emitido_em|data }}</dd></div>
+          {% if termo.enviado_em %}<div><dt>Último envio</dt><dd>{{ termo.ultimo_envio_em|data }}</dd></div>{% endif %}
+          {% if termo.status == "enviado" %}<div><dt>Link vale até</dt><dd>{{ termo.token_expira_em|datahora }}</dd></div>{% endif %}
+          {% if termo.status in ("enviado", "gerado") %}<div><dt>Aberto pelo colaborador</dt><dd>{{ termo.visualizado_em|data or "Ainda não" }}</dd></div>{% endif %}
+          {% if termo.status == "assinado" %}
+          <div><dt>Assinado em</dt><dd>{{ termo.assinado_em|datahora }}</dd></div>
+          <div><dt>Verificação</dt><dd class="forte">{{ termo.codigo_verificacao }}</dd></div>
+          <div><dt>Integridade</dt><dd>
+            {% if integridade and selo_ok %}<span class="selo selo--assinado">Conferida</span>
+            {% elif integridade is none %}<span class="selo selo--falha">Arquivo não encontrado</span>
+            {% elif not integridade %}<span class="selo selo--falha">Arquivo alterado</span>
+            {% else %}<span class="selo selo--falha">Selo inválido</span>{% endif %}</dd></div>
+          {% endif %}
+        </dl>
+      </div>
+    </section>
+
+    {% if termo.status == "assinado" %}
+    <details class="painel recolhivel">
+      <summary>Detalhes da assinatura</summary>
+      <div class="painel__corpo">
+        <dl class="dados dados--1">
+          {% if evidencias %}
+          <div><dt>Autenticação</dt><dd>{{ evidencias.autenticacao.metodo }}. CPF conferido.</dd></div>
+          <div><dt>Forma</dt><dd>{{ "Desenhada na tela" if evidencias.assinatura.tipo == "desenho" else "Nome digitado" }}</dd></div>
+          <div><dt>Endereço IP</dt><dd>{{ evidencias.registro.ip or "—" }}</dd></div>
+          <div><dt>Navegador</dt><dd class="pequeno">{{ evidencias.registro.navegador or "—" }}</dd></div>
+          {% endif %}
+          <div><dt>Hash SHA-256 do PDF</dt><dd class="hash">{{ termo.pdf_hash }}</dd></div>
+          <div><dt>Hash do conteúdo</dt><dd class="hash">{{ termo.hash_conteudo }}</dd></div>
+        </dl>
+      </div>
+    </details>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
